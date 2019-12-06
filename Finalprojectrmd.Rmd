@@ -17,32 +17,158 @@ output: html_document
 train <- read.csv("train.csv")
 weather <- read.csv("weather.csv")
 
+trainbackup <- train
+weatherbackup <- weather
+
+
+
 train$date <- as.Date(train$date, "%Y-%m-%d")
 weather$date <- as.Date(weather$date, "%Y-%m-%d")
-dat = data.frame(rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600))
+
+#empty data frame
+for(i in 1:4617600){
+  
+  if(train$store_nbr[i] == 2){
+      train$store_nbr = 14 
+  }
+  if(train$store_nbr[i] == 3){
+      train$store_nbr = 7 
+  }
+  if(train$store_nbr[i] == 4){
+      train$store_nbr = 9 
+  }
+  if(train$store_nbr[i] == 5){
+      train$store_nbr = 12 
+  }
+  if(train$store_nbr[i] == 6){
+      train$store_nbr = 14 
+  }
+  if(train$store_nbr[i] == 7){
+      train$store_nbr = 6 
+  }
+  if(train$store_nbr[i] == 8){
+      train$store_nbr = 4 
+  }
+  if(train$store_nbr[i] == 9){
+      train$store_nbr = 17
+  }
+  if(train$store_nbr[i] == 10){
+      train$store_nbr = 12 
+  }
+  if(train$store_nbr[i] == 11){
+      train$store_nbr = 10 
+  }
+  if(train$store_nbr[i] == 12){
+      train$store_nbr = 11 
+  }
+  if(train$store_nbr[i] == 13){
+      train$store_nbr = 6 
+  }
+  if(train$store_nbr[i] == 14){
+      train$store_nbr = 16 
+  }
+  if(train$store_nbr[i] == 15){
+      train$store_nbr = 13 
+  }
+  if(train$store_nbr[i] == 16){
+      train$store_nbr = 2 
+  }
+  if(train$store_nbr[i] == 17){
+      train$store_nbr = 20 
+  }
+  if(train$store_nbr[i] == 18){
+      train$store_nbr = 17 
+  }
+  if(train$store_nbr[i] == 19){
+      train$store_nbr = 15 
+  }
+  if(train$store_nbr[i] == 20){
+      train$store_nbr = 7 
+  }
+  if(train$store_nbr[i] == 21){
+      train$store_nbr = 3 
+  }
+  if(train$store_nbr[i] == 22){
+      train$store_nbr = 10 
+  }
+  if(train$store_nbr[i] == 23){
+      train$store_nbr = 17
+  }
+  if(train$store_nbr[i] == 24){
+      train$store_nbr = 9 
+  }
+  if(train$store_nbr[i] == 25){
+      train$store_nbr = 13 
+  }
+  if(train$store_nbr[i] == 26){
+      train$store_nbr = 17 
+  }
+  if(train$store_nbr[i] == 27){
+      train$store_nbr = 10 
+  }
+  if(train$store_nbr[i] == 28){
+      train$store_nbr = 7 
+  }
+  if(train$store_nbr[i] == 29){
+      train$store_nbr = 3 
+  }
+  if(train$store_nbr[i] == 30){
+      train$store_nbr = 19 
+  }
+  if(train$store_nbr[i] == 31){
+      train$store_nbr = 17 
+  }
+  if(train$store_nbr[i] == 32){
+      train$store_nbr = 13 
+  }
+  if(train$store_nbr[i] == 33){
+      train$store_nbr = 13 
+  }
+  if(train$store_nbr[i] == 34){
+      train$store_nbr = 17 
+  }
+  if(train$store_nbr[i] == 35){
+      train$store_nbr = 5 
+  }
+  if(train$store_nbr[i] == 36){
+      train$store_nbr = 18 
+  }
+  if(train$store_nbr[i] == 37){
+      train$store_nbr = 13 
+  }
+  if(train$store_nbr[i] == 38){
+      train$store_nbr = 14 
+  }
+  if(train$store_nbr[i] == 39){
+      train$store_nbr = 8 
+  }
+  if(train$store_nbr[i] == 40){
+      train$store_nbr = 13 
+  }
+  if(train$store_nbr[i] == 41){
+      train$store_nbr = 12 
+  }
+  if(train$store_nbr[i] == 42){
+      train$store_nbr = 14 
+  }
+  if(train$store_nbr[i] == 43){
+      train$store_nbr = 11 
+  }
+  if(train$store_nbr[i] == 44){
+      train$store_nbr = 12 
+  }
+  if(train$store_nbr[i] == 45){
+      train$store_nbr = 16 
+  }
+  
+}
 
 ```
 
 ```{r data merge}
-for (i in 1:4617600){
-  for(j in 1:20517){
-    
-    if(train$store_nbr[i] == 1 &
-       weather$station_nbr[j] == 1 &
-       train$date[i] %in% weather$date[j]){
-          dat[i,] <- cbind(train[i,],weather[j,])
-       }
-      
-    
-    
-    
-      
-    
-    
-    
-  }
+mergedata <- merge(train, weather, by = "store_bbr", by = "date", all= TRUE)
 
-}
+write.csv(mergedata, "mergedata.csv")
 ```
 
 
