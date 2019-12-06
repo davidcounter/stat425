@@ -13,123 +13,27 @@ output: html_document
 	
 	
 #Linear Regression Model / Diagnostics 
-
 ```{r data load}
 train <- read.csv("train.csv")
 weather <- read.csv("weather.csv")
+
+train$date <- as.Date(train$date, "%Y-%m-%d")
+weather$date <- as.Date(weather$date, "%Y-%m-%d")
+dat = data.frame(rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600), rep(0,4617600))
+
 ```
 
 ```{r data merge}
-for (i in 4617600){
-  for(j in 20517){
+for (i in 1:4617600){
+  for(j in 1:20517){
     
-    if(train$store_nbr[i] = 1 &
-       weather$station_nbr[j] = 1 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
+    if(train$store_nbr[i] == 1 &
+       weather$station_nbr[j] == 1 &
+       train$date[i] %in% weather$date[j]){
+          dat[i,] <- cbind(train[i,],weather[j,])
        }
       
-    if(train$store_nbr[i] = 2 &
-       weather$station_nbr[j] = 14 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
     
-    if(train$store_nbr[i] = 3 &
-       weather$station_nbr[j] = 7 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 4 &
-       weather$station_nbr[j] = 9 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 5 &
-       weather$station_nbr[j] = 12 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 6 &
-       weather$station_nbr[j] = 14 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 7 &
-       weather$station_nbr[j] = 6 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 8 &
-       weather$station_nbr[j] = 4 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 9 &
-       weather$station_nbr[j] = 17 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 10 &
-       weather$station_nbr[j] = 12 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 11 &
-       weather$station_nbr[j] = 10 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 12 &
-       weather$station_nbr[j] = 11 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 13 &
-       weather$station_nbr[j] = 6 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 14 &
-       weather$station_nbr[j] = 16 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 15 &
-       weather$station_nbr[j] = 13 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 16 &
-       weather$station_nbr[j] = 2 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 17 &
-       weather$station_nbr[j] = 20 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
-    
-    if(train$store_nbr[i] = 18 &
-       weather$station_nbr[j] = 17 &
-       train$date == weather$date){
-      dat[i] = merge(train[i], weather[j])
-    }
     
     
       
@@ -139,9 +43,6 @@ for (i in 4617600){
   }
 
 }
-  
-
-
 ```
 
 
