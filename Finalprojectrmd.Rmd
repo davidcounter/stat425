@@ -14,22 +14,29 @@ output: html_document
 	
 #Linear Regression Model / Diagnostics 
 ```{r data load}
+#loaded Packages
 library(foreach)
 library(parallel)
 library(doParallel)
+library(dplyr)
 
+#initialized data
 train <- read.csv("train.csv")
 weather <- read.csv("weather.csv")
+test<- read.csv("test.csv")
 
+
+#set backup
 trainbackup <- train
 weatherbackup <- weather
+testbackup <- test
 colnames(weather)[1] <- ("store_nbr")
 
 
-
+#set dates to date format
 train$date <- as.Date(train$date, "%Y-%m-%d")
 weather$date <- as.Date(weather$date, "%Y-%m-%d")
-
+test$date <- as.Date(test$date, "%Y-%m-%d")
 
 
 
@@ -38,7 +45,7 @@ weather$date <- as.Date(weather$date, "%Y-%m-%d")
 ```{r data merge}
 
 #Don't run it this way unless you have 24 hours to let your computer run
-
+#converts all store numbers based on key to merge with weather
   mcmapply( FUN = for(i in 1:4617600){
   
   if(train$store_nbr[i] == 2){
@@ -177,12 +184,239 @@ weather$date <- as.Date(weather$date, "%Y-%m-%d")
   }
 
 )
+#ignore this for now
+  mcmapply( FUN = for(i in 1:4617600){
+  
+  if(train$store_nbr[i] == 2){
+      train$key[i] = 14 
+  }
+  if(train$store_nbr[i] == 3){
+      train$key[i] = 7 
+  }
+  if(train$store_nbr[i] == 4){
+      train$key[i] = 9 
+  }
+  if(train$store_nbr[i] == 5){
+      train$key[i] = 12 
+  }
+  if(train$store_nbr[i] == 6){
+      train$key[i] = 14 
+  }
+  if(train$store_nbr[i] == 7){
+      train$key[i] = 6 
+  }
+  if(train$store_nbr[i] == 8){
+      train$store_nbr[i] = 4 
+  }
+  if(train$store_nbr[i] == 9){
+      train$store_nbr[i] = 17
+  }
+  if(train$store_nbr[i] == 10){
+      train$store_nbr[i] = 12 
+  }
+  if(train$store_nbr[i] == 11){
+      train$store_nbr[i] = 10 
+  }
+  if(train$store_nbr[i] == 12){
+      train$store_nbr[i] = 11 
+  }
+  if(train$store_nbr[i] == 13){
+      train$store_nbr[i] = 6 
+  }
+  if(train$store_nbr[i] == 14){
+      train$store_nbr[i] = 16 
+  }
+  if(train$store_nbr[i] == 15){
+      train$store_nbr[i] = 13 
+  }
+  if(train$store_nbr[i] == 16){
+      train$store_nbr[i] = 2 
+  }
+  if(train$store_nbr[i] == 17){
+      train$store_nbr[i] = 20 
+  }
+  if(train$store_nbr[i] == 18){
+      train$store_nbr[i] = 17 
+  }
+  if(train$store_nbr[i] == 19){
+      train$store_nbr[i] = 15 
+  }
+  if(train$store_nbr[i] == 20){
+      train$store_nbr[i] = 7 
+  }
+  if(train$store_nbr[i] == 21){
+      train$store_nbr[i] = 3 
+  }
+  if(train$store_nbr[i] == 22){
+      train$store_nbr[i] = 10 
+  }
+  if(train$store_nbr[i] == 23){
+      train$store_nbr[i] = 17
+  }
+  if(train$store_nbr[i] == 24){
+      train$store_nbr[i] = 9 
+  }
+  if(train$store_nbr[i] == 25){
+      train$store_nbr[i] = 13 
+  }
+  if(train$store_nbr[i] == 26){
+      train$store_nbr[i] = 17 
+  }
+  if(train$store_nbr[i] == 27){
+      train$store_nbr[i] = 10 
+  }
+  if(train$store_nbr[i] == 28){
+      train$store_nbr[i] = 7 
+  }
+  if(train$store_nbr[i] == 29){
+      train$store_nbr[i] = 3 
+  }
+  if(train$store_nbr[i] == 30){
+      train$store_nbr[i] = 19 
+  }
+  if(train$store_nbr[i] == 31){
+      train$store_nbr[i] = 17 
+  }
+  if(train$store_nbr[i] == 32){
+      train$store_nbr[i] = 13 
+  }
+  if(train$store_nbr[i] == 33){
+      train$store_nbr[i] = 13 
+  }
+  if(train$store_nbr[i] == 34){
+      train$store_nbr[i] = 17 
+  }
+  if(train$store_nbr[i] == 35){
+      train$store_nbr[i] = 5 
+  }
+  if(train$store_nbr[i] == 36){
+      train$store_nbr[i] = 18 
+  }
+  if(train$store_nbr[i] == 37){
+      train$store_nbr[i] = 13 
+  }
+  if(train$store_nbr[i] == 38){
+      train$store_nbr[i] = 14 
+  }
+  if(train$store_nbr[i] == 39){
+      train$store_nbr[i] = 8 
+  }
+  if(train$store_nbr[i] == 40){
+      train$store_nbr[i] = 13 
+  }
+  if(train$store_nbr[i] == 41){
+      train$store_nbr[i] = 12 
+  }
+  if(train$store_nbr[i] == 42){
+      train$store_nbr[i] = 14 
+  }
+  if(train$store_nbr[i] == 43){
+      train$store_nbr[i] = 11 
+  }
+  if(train$store_nbr[i] == 44){
+      train$store_nbr[i] = 12 
+  }
+  if(train$store_nbr[i] == 45){
+      train$store_nbr[i] = 16 
+  }
+  
+  }
 
+)
 
-mergedata <- merge(train, weather, by = c("date","store_nbr"))
-
-write.csv(mergedata, "mergedata.csv")
 ```
+
+```{r dataclean}
+#applies data converting to remove as factor variables
+mergedata <- read.csv("mergedata.csv")
+
+mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
+mergedata$tmax <- as.numeric(levels(mergedata$tmax))[mergedata$tmax]
+mergedata$tmin <- as.numeric(levels(mergedata$tmin))[mergedata$tmin]
+mergedata$tavg <- as.numeric(levels(mergedata$tavg))[mergedata$tavg]
+mergedata$depart <- as.numeric(levels(mergedata$depart))[mergedata$depart]
+mergedata$dewpoint <- as.numeric(levels(mergedata$dewpoint))[mergedata$dewpoint]
+mergedata$wetbulb <- as.numeric(levels(mergedata$wetbulb))[mergedata$wetbulb]
+mergedata$heat <- as.numeric(levels(mergedata$heat))[mergedata$heat]
+mergedata$cool <- as.numeric(levels(mergedata$cool))[mergedata$cool]
+mergedata$sunrise <- as.numeric(levels(mergedata$sunrise))[mergedata$sunrise]
+mergedata$sunset <- as.numeric(levels(mergedata$sunset))[mergedata$sunset]
+mergedata$snowfall <- as.numeric(levels(mergedata$snowfall))[mergedata$snowfall]
+mergedata$preciptotal <- as.numeric(levels(mergedata$preciptotal))[mergedata$preciptotal]
+mergedata$stnpressure <- as.numeric(levels(mergedata$stnpressure))[mergedata$stnpressure]
+mergedata$sealevel <- as.numeric(levels(mergedata$sealevel))[mergedata$sealevel]
+mergedata$resultspeed <- as.numeric(levels(mergedata$resultspeed))[mergedata$resultspeed]
+mergedata$resultdir <- as.numeric(levels(mergedata$resultdir))[mergedata$resultdir]
+mergedata$avgspeed <- as.numeric(levels(mergedata$avgspeed))[mergedata$avgspeed]
+
+
+#drop codesum
+drops <- c("X", "codesum")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+
+#clean data, removing any points which contain 0 in units
+cleandata <- subset(mergedata, mergedata$units != 0)
+drops <- c("X.1", "X")
+cleandata <- cleandata[ , !names(cleandata) %in% drops]
+write.csv(cleandata, "cleandata.csv")
+
+
+#reads and drops clean sum, converts date to date format
+cleandata <- read.csv("cleandata.csv")
+drops <- c("codesum", "X")
+cleandata <- cleandata[ , !names(cleandata) %in% drops]
+cleandata$date <- as.Date(cleandata$date, "%Y-%m-%d")
+
+
+#merges test data with merge data to create a from for prediction
+newtest <- merge(test, mergedata,  all.x = TRUE)
+drops <- c("X.1", "X")
+newtest <- newtest[ , !names(newtest) %in% drops]
+
+#deletes all duplicate rows and matches all data points for test without repitition
+newtest <- distinct(newtest, .keep_all = TRUE)
+newtest <- newtest[!duplicated(newtest[,1:3]),]
+```
+
+```{r OLS}
+sample <- read.csv("sampleSubmission.csv")
+SampleOLS <- sample
+
+#OLS model
+OLSModel <- lm(units ~ . , data = cleandata)
+
+summary(OLSModel)
+
+
+predictionOLS <- predict.lm(OLSModel, newdata = newtest)
+predictionOLS[is.na(predictionOLS)] <- 0
+
+SampleOLS$units <- predictionOLS
+
+write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
