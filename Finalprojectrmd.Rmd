@@ -14,6 +14,9 @@ output: html_document
 	
 #Linear Regression Model / Diagnostics 
 ```{r data load}
+####RUN AT STARTUP
+
+
 #loaded Packages
 library(foreach)
 library(parallel)
@@ -24,14 +27,19 @@ library(dplyr)
 train <- read.csv("train.csv")
 weather <- read.csv("weather.csv")
 test<- read.csv("test.csv")
+key <- read.csv("key.csv")
+mergedata <- read.csv("mergedata.csv")
+sample <- read.csv("sampleSubmission.csv")
+testy <- read.csv("testy.csv")
+drops <- c("X", "key", "codesum", "station_nbr")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy <- testy[ , !names(testy) %in% drops]
 
 
 #set backup
 trainbackup <- train
 weatherbackup <- weather
 testbackup <- test
-colnames(weather)[1] <- ("store_nbr")
-
 
 #set dates to date format
 train$date <- as.Date(train$date, "%Y-%m-%d")
@@ -64,6 +72,30 @@ mergedata <- merge(train, weather, by = c("date", "station_nbr"))
 mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
 write.csv(mergedata, "mergedata.csv")
 
+
+
+
+test <- read.csv("test.csv")
+keytest <- rep(0, nrow(test))
+#create key
+  mcmapply( FUN = for(i in 1:nrow(test)){
+    keytest[i] = key$station_nbr[test$store_nbr[i]]
+    if(i %% 10000 == 0){
+      print(i)
+    }
+  }
+)
+newtest <- cbind("station_nbr" = keytest, test)
+
+
+#merges test data with merge data to create a from for prediction
+testtest <- merge(newtest, weather,  by = c("date", "station_nbr"))
+drops <- c("X.1", "X")
+testtest <- testtest[ , !names(testtest) %in% drops]
+testtest <- testtest[with(testtest, order(testtest$date, testtest$store_nbr, testtest$item_nbr)),]
+
+write.csv(testtest, "testy.csv")
+
 ```
 
 ```{r dataclean}
@@ -88,47 +120,47 @@ mergedata$sealevel <- as.numeric(levels(mergedata$sealevel))[mergedata$sealevel]
 mergedata$resultspeed <- as.numeric(levels(mergedata$resultspeed))[mergedata$resultspeed]
 mergedata$resultdir <- as.numeric(levels(mergedata$resultdir))[mergedata$resultdir]
 mergedata$avgspeed <- as.numeric(levels(mergedata$avgspeed))[mergedata$avgspeed]
+mergedata$store_nbr <- as.factor(mergedata$store_nbr)
+mergedata$item_nbr <- as.factor(mergedata$item_nbr)
 
 
-#drop codesum
-drops <- c("X", "codesum")
-mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy$date <- as.Date(testy$date, "%Y-%m-%d")
+testy$tmax <- as.numeric(levels(testy$tmax))[testy$tmax]
+testy$tmin <- as.numeric(levels(testy$tmin))[testy$tmin]
+testy$tavg <- as.numeric(levels(testy$tavg))[testy$tavg]
+testy$depart <- as.numeric(levels(testy$depart))[testy$depart]
+testy$dewpoint <- as.numeric(levels(testy$dewpoint))[testy$dewpoint]
+testy$wetbulb <- as.numeric(levels(testy$wetbulb))[testy$wetbulb]
+testy$heat <- as.numeric(levels(testy$heat))[testy$heat]
+testy$cool <- as.numeric(levels(testy$cool))[testy$cool]
+testy$sunrise <- as.numeric(levels(testy$sunrise))[testy$sunrise]
+testy$sunset <- as.numeric(levels(testy$sunset))[testy$sunset]
+testy$snowfall <- as.numeric(levels(testy$snowfall))[testy$snowfall]
+testy$preciptotal <- as.numeric(levels(testy$preciptotal))[testy$preciptotal]
+testy$stnpressure <- as.numeric(levels(testy$stnpressure))[testy$stnpressure]
+testy$sealevel <- as.numeric(levels(testy$sealevel))[testy$sealevel]
+testy$resultspeed <- as.numeric(levels(testy$resultspeed))[testy$resultspeed]
+testy$resultdir <- as.numeric(levels(testy$resultdir))[testy$resultdir]
+testy$avgspeed <- as.numeric(levels(testy$avgspeed))[testy$avgspeed]
+testy$store_nbr <- as.factor(testy$store_nbr)
+testy$item_nbr <- as.factor(testy$item_nbr)
 
-#clean data, removing any points which contain 0 in units
-cleandata <- subset(mergedata, mergedata$units != 0)
-drops <- c("X.1", "X")
-cleandata <- cleandata[ , !names(cleandata) %in% drops]
-write.csv(cleandata, "cleandata.csv")
 
 
-#reads and drops clean sum, converts date to date format
-cleandata <- read.csv("cleandata.csv")
-drops <- c("codesum", "X")
-cleandata <- cleandata[ , !names(cleandata) %in% drops]
-cleandata$date <- as.Date(cleandata$date, "%Y-%m-%d")
-
-
-#merges test data with merge data to create a from for prediction
-newtest <- merge(test, mergedata,  all.x = TRUE)
-drops <- c("X.1", "X")
-newtest <- newtest[ , !names(newtest) %in% drops]
-
-#deletes all duplicate rows and matches all data points for test without repitition
-newtest <- distinct(newtest, .keep_all = TRUE)
-newtest <- newtest[!duplicated(newtest[,1:3]),]
 ```
 
 ```{r OLS}
-sample <- read.csv("sampleSubmission.csv")
 SampleOLS <- sample
 
+
+
 #OLS model
-OLSModel <- lm(units ~ . , data = cleandata)
+OLSModel <- lm(units ~ . , data = mergedata)
 
 summary(OLSModel)
 
 
-predictionOLS <- predict.lm(OLSModel, newdata = newtest)
+predictionOLS <- predict(OLSModel, newdata = testy)
 predictionOLS[is.na(predictionOLS)] <- 0
 
 SampleOLS$units <- predictionOLS
