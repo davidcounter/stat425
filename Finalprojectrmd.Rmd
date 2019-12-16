@@ -22,6 +22,7 @@ library(foreach)
 library(parallel)
 library(doParallel)
 library(dplyr)
+library(caret)
 
 #initialized data
 train <- read.csv("train.csv")
@@ -100,7 +101,8 @@ write.csv(testtest, "testy.csv")
 
 ```{r dataclean}
 #applies data converting to remove as factor variables
-mergedata <- read.csv("mergedata.csv")
+#RUN AT START
+
 
 mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
 mergedata$tmax <- as.numeric(levels(mergedata$tmax))[mergedata$tmax]
@@ -153,11 +155,12 @@ testy$item_nbr <- as.factor(testy$item_nbr)
 SampleOLS <- sample
 
 
-
 #OLS model
-OLSModel <- lm(units ~ . , data = mergedata)
+OLSModel <- lm(units ~ . - store_nbr + factor(store_nbr) , data = mergedata)
 
 summary(OLSModel)
+
+
 
 
 predictionOLS <- predict(OLSModel, newdata = testy)
