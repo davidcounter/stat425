@@ -1,0 +1,186 @@
+---
+title: "Final Project"
+author: "David Counter"
+date: "December 17, 2019"
+output: html_document
+---
+
+#Introduction
+
+	The Stat 425 final project is about working with big data and creating the best model to use for the predication of sales of products as it relates to weather events. This data was aggregated by Walmart back in 2014, taken from 45 different stores with 20 different weather reporting stations across these areas. The train data provided by Walmart gives us the data across these stores for the amount of a particular item sold, its item id and is organized by date. The test csv is what Kaggle tests our model against; the data for these dates and stores is known, and we will be given a score based upon how accurate our model is in comparison to its actual values.
+
+	Walmart also of course provides weather data across 20 stations per day. There’s extensive data on rainfall, wind speed, temperature, significant weather events and so on. Predictors like pressure, monthly rainfall, average sea level pressure and so on might not be that influential in terms of the final model, however we will see should our prediction on these variables might change. We will have to use these potential 74 variables to create a model which predicts the sales of each product in the test data. First initially starting with a “full” Ordinary least squares model, we will do some model selection, possible ridge or lasso scaling, and take into account collinearity, covariance and so on.  After this model selection, we will use it to predict the data with the test.csv data. Kaggle will return a score, the lower of which will be better. Our lowest Kaggle score will be our “best model” and this is what will be scored in the final grade. Finally, at the end we’ll include all relevant graphs and tables, as well as all code that is used in the report.
+	
+	
+#Linear Regression Model / Diagnostics 
+```{r data load}
+####RUN AT STARTUP
+
+
+#loaded Packages
+library(foreach)
+library(parallel)
+library(doParallel)
+library(dplyr)
+
+#initialized data
+train <- read.csv("train.csv")
+weather <- read.csv("weather.csv")
+test<- read.csv("test.csv")
+key <- read.csv("key.csv")
+mergedata <- read.csv("mergedata/mergedata.csv")
+sample <- read.csv("sampleSubmission.csv")
+testy <- read.csv("testy.csv")
+
+
+
+#set backup
+trainbackup <- train
+weatherbackup <- weather
+testbackup <- test
+
+#set dates to date format
+train$date <- as.Date(train$date, "%Y-%m-%d")
+weather$date <- as.Date(weather$date, "%Y-%m-%d")
+test$date <- as.Date(test$date, "%Y-%m-%d")
+testy$date <- as.Date(testy$date, "%Y-%m-%d")
+
+
+```
+
+
+
+```{r data merge}
+
+keymerge <- rep(1,4617600)
+
+key<- read.csv("key.csv")
+
+#Don't run it this way unless you have 24 hours to let your computer run
+#converts all store numbers based on key to merge with weather
+  mcmapply( FUN = for(i in 1:4617600){
+    keymerge[i] = key$station_nbr[train$store_nbr[i]]
+    if(i %% 10000 == 0){
+      print(i)
+    }
+  }
+)
+
+train<-cbind("station_nbr" = keymerge, train)
+  
+mergedata <- merge(train, weather, by = c("date", "station_nbr"))
+mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
+write.csv(mergedata, "mergedata.csv")
+
+
+
+
+test <- read.csv("test.csv")
+keytest <- rep(0, nrow(test))
+#create key
+  mcmapply( FUN = for(i in 1:nrow(test)){
+    keytest[i] = key$station_nbr[test$store_nbr[i]]
+    if(i %% 10000 == 0){
+      print(i)
+    }
+  }
+)
+newtest <- cbind("station_nbr" = keytest, test)
+
+
+#merges test data with merge data to create a from for prediction
+testtest <- merge(newtest, weather,  by = c("date", "station_nbr"))
+drops <- c("X.1", "X")
+testtest <- testtest[ , !names(testtest) %in% drops]
+testtest <- testtest[with(testtest, order(testtest$date, testtest$store_nbr, testtest$item_nbr)),]
+
+write.csv(testtest, "testy.csv")
+
+```
+
+```{r dataclean}
+#applies data converting to remove as factor variables
+mergedata <- read.csv("mergedata/mergedata.csv")
+
+
+testy = read.csv("testy.csv")
+
+
+
+```
+
+```{r OLS}
+snowfall = as.character(mergedata$snowfall)
+snowfall[snowfall == "  T"] = "0.0001"
+
+
+```
+
+
+```{r}
+
+mergedata = read.csv("mergedata/mergedata.csv")
+testy = read.csv("testy.csv")
+drops <- c("X", "key", "codesum", "station_nbr")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy <- testy[ , !names(testy) %in% drops]
+
+
+```
+
+```{r}
+mergedata$tmax = NULL
+mergedata$tmin = NULL
+mergedata[mergedata$tavg == "M",]$tavg = NA
+mergedata$tavg = as.numeric(mergedata$tavg)
+
+testy$date = as.Date(testy$date)
+testy$station_nbr = as.factor(testy$station_nbr)
+testy$store_nbr = as.factor(testy$store_nbr)
+testy$item_nbr = as.factor(testy$item_nbr)
+
+grouped_data = mergedata[mergedata$units != 0,]
+grouped_data$id = paste0(as.character(grouped_data$store_nbr), "_", as.character(grouped_data$item_nbr))
+testy$id = paste0(as.character(testy$store_nbr), "_", as.character(testy$item_nbr))
+```
+
+```{r}
+
+model = lm(units ~ date + store_nbr + item_nbr + dewpoint , data = grouped_data)
+predictions = predict(model, testy)
+testy$units = predictions
+testy[!testy$id %in% grouped_data$id,]$units = 0
+sample = read.csv("sampleSubmission.csv")
+sample$units = testy$units
+write.csv(sample, "testSubmission.csv", row.names = FALSE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
