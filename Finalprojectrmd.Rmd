@@ -21,20 +21,146 @@ library("doParallel")
 library("microbenchmark")
 library(foreach)
 library(parallel)
-library(doParallel)
 library(gridExtra)
 
 
 
 ```
 
+```{r, setup-parallel}
+registerDoParallel(cores = 4)
+```
+
+```{r data merge, eval=FALSE}
+
+train <- read.csv("train.csv")
+weather <- read.csv("weather.csv")
+test<- read.csv("test.csv")
+key <- read.csv("key.csv")
+train$date <- as.Date(train$date, "%Y-%m-%d")
+weather$date <- as.Date(weather$date, "%Y-%m-%d")
+test$date <- as.Date(test$date, "%Y-%m-%d")
+
+
+keymerge <- rep(1,4617600)
+
+
+#merges weather with train based on key
+  mcmapply( FUN = for(i in 1:4617600){
+    keymerge[i] = key$station_nbr[train$store_nbr[i]]
+    if(i %% 10000 == 0){
+      print(i)
+    }
+  }
+)
+
+train<-cbind("station_nbr" = keymerge, train)
+mergedata <- merge(train, weather, by = c("date", "station_nbr"))
+#orders data based on original format
+mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
+write.csv(mergedata, "mergedata.csv")
+
+#removes all rows with unit = 0
+cleandata <- subset(mergedata, !mergedata$units == 0)
+write.csv(cleandata, "cleandata.csv")
+
+
+
+#merges test data with weather based on key
+test <- read.csv("test.csv")
+keytest <- rep(0, nrow(test))
+#create key
+  mcmapply( FUN = for(i in 1:nrow(test)){
+    keytest[i] = key$station_nbr[test$store_nbr[i]]
+    if(i %% 10000 == 0){
+      print(i)
+    }
+  }
+)
+newtest <- cbind("station_nbr" = keytest, test)
+
+
+#merges test data with merge data to create a from for prediction
+testtest <- merge(newtest, weather,  by = c("date", "station_nbr"))
+drops <- c("X.1", "X")
+#merges data based on standard format
+testtest <- testtest[ , !names(testtest) %in% drops]
+testtest <- testtest[with(testtest, order(testtest$date, testtest$store_nbr, testtest$item_nbr)),]
+
+write.csv(testtest, "testy.csv")
+
+
+```
+
+
+
+```{r data load}
+####RUN AT STARTUP
+#initialized data
+mergedata <- read.csv("mergedata.csv")
+sample <- read.csv("sampleSubmission.csv")
+testy <- read.csv("testy.csv")
+cleandata <- read.csv("cleandata.csv")
+drops <- c("X", "key", "codesum", "station_nbr")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy <- testy[ , !names(testy) %in% drops]
+
+
+
+
+
+
+
+#changes factor levels to num
+mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
+mergedata$tmax <- as.numeric(levels(mergedata$tmax))[mergedata$tmax]
+mergedata$tmin <- as.numeric(levels(mergedata$tmin))[mergedata$tmin]
+mergedata$tavg <- as.numeric(levels(mergedata$tavg))[mergedata$tavg]
+mergedata$depart <- as.numeric(levels(mergedata$depart))[mergedata$depart]
+mergedata$dewpoint <- as.numeric(levels(mergedata$dewpoint))[mergedata$dewpoint]
+mergedata$wetbulb <- as.numeric(levels(mergedata$wetbulb))[mergedata$wetbulb]
+mergedata$heat <- as.numeric(levels(mergedata$heat))[mergedata$heat]
+mergedata$cool <- as.numeric(levels(mergedata$cool))[mergedata$cool]
+mergedata$sunrise <- as.numeric(levels(mergedata$sunrise))[mergedata$sunrise]
+mergedata$sunset <- as.numeric(levels(mergedata$sunset))[mergedata$sunset]
+mergedata$snowfall <- as.numeric(levels(mergedata$snowfall))[mergedata$snowfall]
+mergedata$preciptotal <- as.numeric(levels(mergedata$preciptotal))[mergedata$preciptotal]
+mergedata$stnpressure <- as.numeric(levels(mergedata$stnpressure))[mergedata$stnpressure]
+mergedata$sealevel <- as.numeric(levels(mergedata$sealevel))[mergedata$sealevel]
+mergedata$resultspeed <- as.numeric(levels(mergedata$resultspeed))[mergedata$resultspeed]
+mergedata$resultdir <- as.numeric(levels(mergedata$resultdir))[mergedata$resultdir]
+mergedata$avgspeed <- as.numeric(levels(mergedata$avgspeed))[mergedata$avgspeed]
+
+
+
+
+
+
+
+testy$date <- as.Date(testy$date, "%Y-%m-%d")
+testy$tmax <- as.numeric(levels(testy$tmax))[testy$tmax]
+testy$tmin <- as.numeric(levels(testy$tmin))[testy$tmin]
+testy$tavg <- as.numeric(levels(testy$tavg))[testy$tavg]
+testy$depart <- as.numeric(levels(testy$depart))[testy$depart]
+testy$dewpoint <- as.numeric(levels(testy$dewpoint))[testy$dewpoint]
+testy$wetbulb <- as.numeric(levels(testy$wetbulb))[testy$wetbulb]
+testy$heat <- as.numeric(levels(testy$heat))[testy$heat]
+testy$cool <- as.numeric(levels(testy$cool))[testy$cool]
+testy$sunrise <- as.numeric(levels(testy$sunrise))[testy$sunrise]
+testy$sunset <- as.numeric(levels(testy$sunset))[testy$sunset]
+testy$snowfall <- as.numeric(levels(testy$snowfall))[testy$snowfall]
+testy$preciptotal <- as.numeric(levels(testy$preciptotal))[testy$preciptotal]
+testy$stnpressure <- as.numeric(levels(testy$stnpressure))[testy$stnpressure]
+testy$sealevel <- as.numeric(levels(testy$sealevel))[testy$sealevel]
+testy$resultspeed <- as.numeric(levels(testy$resultspeed))[testy$resultspeed]
+testy$resultdir <- as.numeric(levels(testy$resultdir))[testy$resultdir]
+testy$avgspeed <- as.numeric(levels(testy$avgspeed))[testy$avgspeed]
+```
+
 ```{r, ggplot-theme}
 theme_set(theme_light())
 ```
 
-```{r, setup-parallel}
-registerDoParallel(cores = 4)
-```
 
 ```{r, load-data, message = FALSE, warning = FALSE}
 library(readr)
@@ -106,138 +232,17 @@ summary(model1)
 
 	
 #Linear Regression Model / Diagnostics 
-```{r data load}
-####RUN AT STARTUP
 
 
-
-#initialized data
-
-mergedata <- read.csv("mergedata.csv")
-
-
-sample <- read.csv("sampleSubmission.csv")
-testy <- read.csv("testy.csv")
-drops <- c("X", "key", "codesum", "station_nbr")
-mergedata <- mergedata[ , !names(mergedata) %in% drops]
-testy <- testy[ , !names(testy) %in% drops]
-
-
-
-
-#set dates to date format
-
-
-
-
-```
-
-```{r data merge}
-
-train <- read.csv("train.csv")
-weather <- read.csv("weather.csv")
-test<- read.csv("test.csv")
-key <- read.csv("key.csv")
-train$date <- as.Date(train$date, "%Y-%m-%d")
-weather$date <- as.Date(weather$date, "%Y-%m-%d")
-test$date <- as.Date(test$date, "%Y-%m-%d")
-
-
-keymerge <- rep(1,4617600)
-
-
-#merges weather with train based on key
-  mcmapply( FUN = for(i in 1:4617600){
-    keymerge[i] = key$station_nbr[train$store_nbr[i]]
-    if(i %% 10000 == 0){
-      print(i)
-    }
-  }
-)
-
-train<-cbind("station_nbr" = keymerge, train)
-mergedata <- merge(train, weather, by = c("date", "station_nbr"))
-#orders data based on original format
-mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
-write.csv(mergedata, "mergedata.csv")
-
-#removes all rows with unit = 0
-cleandata <- subset(mergedata, !mergedata$units == 0)
-write.csv(cleandata, "cleandata.csv")
-
-
-
-#merges test data with weather based on key
-test <- read.csv("test.csv")
-keytest <- rep(0, nrow(test))
-#create key
-  mcmapply( FUN = for(i in 1:nrow(test)){
-    keytest[i] = key$station_nbr[test$store_nbr[i]]
-    if(i %% 10000 == 0){
-      print(i)
-    }
-  }
-)
-newtest <- cbind("station_nbr" = keytest, test)
-
-
-#merges test data with merge data to create a from for prediction
-testtest <- merge(newtest, weather,  by = c("date", "station_nbr"))
-drops <- c("X.1", "X")
-#merges data based on standard format
-testtest <- testtest[ , !names(testtest) %in% drops]
-testtest <- testtest[with(testtest, order(testtest$date, testtest$store_nbr, testtest$item_nbr)),]
-
-write.csv(testtest, "testy.csv")
-
-
-```
-
-```{r dataclean}
+```{r dataclean, eval=FALSE}
 #applies data converting to remove as factor variables
 #RUN AT START
 
 
-mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
-mergedata$tmax <- as.numeric(levels(mergedata$tmax))[mergedata$tmax]
-mergedata$tmin <- as.numeric(levels(mergedata$tmin))[mergedata$tmin]
-mergedata$tavg <- as.numeric(levels(mergedata$tavg))[mergedata$tavg]
-mergedata$depart <- as.numeric(levels(mergedata$depart))[mergedata$depart]
-mergedata$dewpoint <- as.numeric(levels(mergedata$dewpoint))[mergedata$dewpoint]
-mergedata$wetbulb <- as.numeric(levels(mergedata$wetbulb))[mergedata$wetbulb]
-mergedata$heat <- as.numeric(levels(mergedata$heat))[mergedata$heat]
-mergedata$cool <- as.numeric(levels(mergedata$cool))[mergedata$cool]
-mergedata$sunrise <- as.numeric(levels(mergedata$sunrise))[mergedata$sunrise]
-mergedata$sunset <- as.numeric(levels(mergedata$sunset))[mergedata$sunset]
-mergedata$snowfall <- as.numeric(levels(mergedata$snowfall))[mergedata$snowfall]
-mergedata$preciptotal <- as.numeric(levels(mergedata$preciptotal))[mergedata$preciptotal]
-mergedata$stnpressure <- as.numeric(levels(mergedata$stnpressure))[mergedata$stnpressure]
-mergedata$sealevel <- as.numeric(levels(mergedata$sealevel))[mergedata$sealevel]
-mergedata$resultspeed <- as.numeric(levels(mergedata$resultspeed))[mergedata$resultspeed]
-mergedata$resultdir <- as.numeric(levels(mergedata$resultdir))[mergedata$resultdir]
-mergedata$avgspeed <- as.numeric(levels(mergedata$avgspeed))[mergedata$avgspeed]
 mergedata$store_nbr <- as.factor(mergedata$store_nbr)
 mergedata$item_nbr <- as.factor(mergedata$item_nbr)
 
 
-testy$date <- as.Date(testy$date, "%Y-%m-%d")
-testy$tmax <- as.numeric(levels(testy$tmax))[testy$tmax]
-testy$tmin <- as.numeric(levels(testy$tmin))[testy$tmin]
-testy$tavg <- as.numeric(levels(testy$tavg))[testy$tavg]
-testy$depart <- as.numeric(levels(testy$depart))[testy$depart]
-testy$dewpoint <- as.numeric(levels(testy$dewpoint))[testy$dewpoint]
-testy$wetbulb <- as.numeric(levels(testy$wetbulb))[testy$wetbulb]
-testy$heat <- as.numeric(levels(testy$heat))[testy$heat]
-testy$cool <- as.numeric(levels(testy$cool))[testy$cool]
-testy$sunrise <- as.numeric(levels(testy$sunrise))[testy$sunrise]
-testy$sunset <- as.numeric(levels(testy$sunset))[testy$sunset]
-testy$snowfall <- as.numeric(levels(testy$snowfall))[testy$snowfall]
-testy$preciptotal <- as.numeric(levels(testy$preciptotal))[testy$preciptotal]
-testy$stnpressure <- as.numeric(levels(testy$stnpressure))[testy$stnpressure]
-testy$sealevel <- as.numeric(levels(testy$sealevel))[testy$sealevel]
-testy$resultspeed <- as.numeric(levels(testy$resultspeed))[testy$resultspeed]
-testy$resultdir <- as.numeric(levels(testy$resultdir))[testy$resultdir]
-testy$avgspeed <- as.numeric(levels(testy$avgspeed))[testy$avgspeed]
 testy$store_nbr <- as.factor(testy$store_nbr)
 testy$item_nbr <- as.factor(testy$item_nbr)
 
@@ -250,7 +255,7 @@ SampleOLS <- sample
 
 
 #OLS model
-OLSModel <- lm(units ~ . , data = mergedata)
+OLSModel <- lm(units ~ . , data = cleandata)
 
 summary(OLSModel)
 
@@ -268,7 +273,7 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 ```
 
 ```{r AIC}
-AICmerge <- mergedata
+AICmerge <- cleandata
 
 AICmerge <- na.omit(AICmerge)
 
@@ -289,23 +294,27 @@ write.csv(x = SampleAIC, file =  "SampleAIC.csv", row.names = FALSE)
 ```
 
 ```{r}
-mergedata = read.csv("mergedata/mergedata.csv")
+mergedata = read.csv("mergedata.csv")
 testy = read.csv("testy.csv")
+cleandata = read.csv("cleandata.csv")
 drops <- c("X", "key", "codesum", "station_nbr")
 mergedata <- mergedata[ , !names(mergedata) %in% drops]
 testy <- testy[ , !names(testy) %in% drops]
 ```
 
 ```{r}
-mergedata$tmax = NULL
-mergedata$tmin = NULL
-mergedata[mergedata$tavg == "M",]$tavg = NA
-mergedata$tavg = as.numeric(mergedata$tavg)
+cleandata$tmax = NULL
+cleandata$tmin = NULL
+cleandata$X = NULL
+cleandata[cleandata$tavg == "M",]$tavg = NA
+cleandata$tavg = as.numeric(cleandata$tavg)
 testy$date = as.Date(testy$date)
-testy$station_nbr = as.factor(testy$station_nbr)
+cleandata$date = as.Date(cleandata$date)
 testy$store_nbr = as.factor(testy$store_nbr)
 testy$item_nbr = as.factor(testy$item_nbr)
-grouped_data = mergedata[mergedata$units != 0,]
+cleandata$store_nbr <- as.factor(cleandata$store_nbr)
+cleandata$item_nbr <- as.factor(cleandata$item_nbr)
+grouped_data = cleandata[cleandata$units != 0,]
 grouped_data$id = paste0(as.character(grouped_data$store_nbr), "_", as.character(grouped_data$item_nbr))
 testy$id = paste0(as.character(testy$store_nbr), "_", as.character(testy$item_nbr))
 ```
