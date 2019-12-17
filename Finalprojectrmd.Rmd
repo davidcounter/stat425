@@ -5,6 +5,7 @@ date: "December 17, 2019"
 output: html_document
 ---
 
+<<<<<<< HEAD
 #Introduction
 
 	The Stat 425 final project is about working with big data and creating the best model to use for the predication of sales of products as it relates to weather events. This data was aggregated by Walmart back in 2014, taken from 45 different stores with 20 different weather reporting stations across these areas. The train data provided by Walmart gives us the data across these stores for the amount of a particular item sold, its item id and is organized by date. The test csv is what Kaggle tests our model against; the data for these dates and stores is known, and we will be given a score based upon how accurate our model is in comparison to its actual values.
@@ -23,11 +24,40 @@ library(parallel)
 library(doParallel)
 library(dplyr)
 library(lubridate)
+=======
 
-#initialized data
+```{r, setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align = "center", 
+                      cache = TRUE, autodep = TRUE)
+```
+
+```{r, load-packages, include = FALSE, message = FALSE}
+library("tidyverse")
+library("dplyr")
+library("rsample")
+library("caret")
+library("kableExtra")
+library("doParallel")
+library("microbenchmark")
+library(foreach)
+library(parallel)
+library(gridExtra)
+
+
+
+```
+
+```{r, setup-parallel}
+registerDoParallel(cores = 4)
+```
+
+```{r data merge, eval=FALSE}
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
+
 train <- read.csv("train.csv")
 weather <- read.csv("weather.csv", stringsAsFactors = FALSE)
 test<- read.csv("test.csv")
+<<<<<<< HEAD
 #key <- read.csv("key.csv")
 mergedata <- read.csv("mergedata.csv")
 sample <- read.csv("sampleSubmission.csv")
@@ -43,11 +73,15 @@ mergedtestdata = read.csv("mergedtestdata")
 #testbackup <- test
 
 #set dates to date format
+=======
+key <- read.csv("key.csv")
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
 train$date <- as.Date(train$date, "%Y-%m-%d")
 #weather$date <- as.Date(weather$date, "%Y-%m-%d")
 test$date <- as.Date(test$date, "%Y-%m-%d")
 
 
+<<<<<<< HEAD
 
 ```
 
@@ -96,22 +130,44 @@ write.csv(weatherclean, "weatherclean.csv")
 ```
 
 ```{r data merge}
+=======
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
 keymerge <- rep(1,4617600)
 
-key<- read.csv("key.csv")
 
+<<<<<<< HEAD
 #Don't run it this way unless you have 24 hours to let your computer run
 #converts all store numbers based on key to merge with weather
 for(i in 1:4617600){
+=======
+#merges weather with train based on key
+  mcmapply( FUN = for(i in 1:4617600){
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
     keymerge[i] = key$station_nbr[train$store_nbr[i]]
   }
 
 train<-cbind("station_nbr" = keymerge, train)
+<<<<<<< HEAD
   
 mergedata <- merge(train, weatherclean, by = c("date", "station_nbr"))
 mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
 write.csv(mergedata, "mergedata.csv")
 
+=======
+mergedata <- merge(train, weather, by = c("date", "station_nbr"))
+#orders data based on original format
+mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
+write.csv(mergedata, "mergedata.csv")
+
+#removes all rows with unit = 0
+cleandata <- subset(mergedata, !mergedata$units == 0)
+write.csv(cleandata, "cleandata.csv")
+
+
+
+#merges test data with weather based on key
+test <- read.csv("test.csv")
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
 keytest <- rep(0, nrow(test))
 #create key
 for(i in 1:nrow(test)){
@@ -123,27 +179,195 @@ test <- cbind("station_nbr" = keytest, test)
 #merges test data with merge data to create a from for prediction
 mergedtestdata <- merge(test, weatherclean,  by = c("date", "station_nbr"))
 drops <- c("X.1", "X")
+<<<<<<< HEAD
 mergedtestdata <- mergedtestdata[ , !names(mergedtestdata) %in% drops]
 mergedtestdata <- mergedtestdata[with(mergedtestdata, order(mergedtestdata$date, mergedtestdata$store_nbr, mergedtestdata$item_nbr)),]
+=======
+#merges data based on standard format
+testtest <- testtest[ , !names(testtest) %in% drops]
+testtest <- testtest[with(testtest, order(testtest$date, testtest$store_nbr, testtest$item_nbr)),]
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
 
 write.csv(mergedtestdata, "mergedtestdata.csv")
 
+
 ```
 
+<<<<<<< HEAD
 ```{r dataclean}
 #applies data converting to remove as factor variables
 mergedata <- read.csv("mergedata.csv")
 mergedata <- mergedata[ , !names(mergedata) %in% c("X")]
+=======
 
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
+
+```{r data load}
+####RUN AT STARTUP
+#initialized data
+mergedata <- read.csv("mergedata.csv")
+sample <- read.csv("sampleSubmission.csv")
+testy <- read.csv("testy.csv")
+cleandata <- read.csv("cleandata.csv")
+drops <- c("X", "key", "codesum", "station_nbr")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy <- testy[ , !names(testy) %in% drops]
+
+
+
+
+
+
+
+#changes factor levels to num
 mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
+<<<<<<< HEAD
 mergedata$store_nbr <- as.factor(mergedata$store_nbr)
 mergedata$item_nbr <- as.factor(mergedata$item_nbr)
+=======
+mergedata$tmax <- as.numeric(levels(mergedata$tmax))[mergedata$tmax]
+mergedata$tmin <- as.numeric(levels(mergedata$tmin))[mergedata$tmin]
+mergedata$tavg <- as.numeric(levels(mergedata$tavg))[mergedata$tavg]
+mergedata$depart <- as.numeric(levels(mergedata$depart))[mergedata$depart]
+mergedata$dewpoint <- as.numeric(levels(mergedata$dewpoint))[mergedata$dewpoint]
+mergedata$wetbulb <- as.numeric(levels(mergedata$wetbulb))[mergedata$wetbulb]
+mergedata$heat <- as.numeric(levels(mergedata$heat))[mergedata$heat]
+mergedata$cool <- as.numeric(levels(mergedata$cool))[mergedata$cool]
+mergedata$sunrise <- as.numeric(levels(mergedata$sunrise))[mergedata$sunrise]
+mergedata$sunset <- as.numeric(levels(mergedata$sunset))[mergedata$sunset]
+mergedata$snowfall <- as.numeric(levels(mergedata$snowfall))[mergedata$snowfall]
+mergedata$preciptotal <- as.numeric(levels(mergedata$preciptotal))[mergedata$preciptotal]
+mergedata$stnpressure <- as.numeric(levels(mergedata$stnpressure))[mergedata$stnpressure]
+mergedata$sealevel <- as.numeric(levels(mergedata$sealevel))[mergedata$sealevel]
+mergedata$resultspeed <- as.numeric(levels(mergedata$resultspeed))[mergedata$resultspeed]
+mergedata$resultdir <- as.numeric(levels(mergedata$resultdir))[mergedata$resultdir]
+mergedata$avgspeed <- as.numeric(levels(mergedata$avgspeed))[mergedata$avgspeed]
+
+
+
+
+
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
 
 mergedtestdata <- read.csv("mergedtestdata.csv")
 
+<<<<<<< HEAD
 mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
 mergedtestdata$store_nbr <- as.factor(mergedtestdata$store_nbr)
 mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
+=======
+testy$date <- as.Date(testy$date, "%Y-%m-%d")
+testy$tmax <- as.numeric(levels(testy$tmax))[testy$tmax]
+testy$tmin <- as.numeric(levels(testy$tmin))[testy$tmin]
+testy$tavg <- as.numeric(levels(testy$tavg))[testy$tavg]
+testy$depart <- as.numeric(levels(testy$depart))[testy$depart]
+testy$dewpoint <- as.numeric(levels(testy$dewpoint))[testy$dewpoint]
+testy$wetbulb <- as.numeric(levels(testy$wetbulb))[testy$wetbulb]
+testy$heat <- as.numeric(levels(testy$heat))[testy$heat]
+testy$cool <- as.numeric(levels(testy$cool))[testy$cool]
+testy$sunrise <- as.numeric(levels(testy$sunrise))[testy$sunrise]
+testy$sunset <- as.numeric(levels(testy$sunset))[testy$sunset]
+testy$snowfall <- as.numeric(levels(testy$snowfall))[testy$snowfall]
+testy$preciptotal <- as.numeric(levels(testy$preciptotal))[testy$preciptotal]
+testy$stnpressure <- as.numeric(levels(testy$stnpressure))[testy$stnpressure]
+testy$sealevel <- as.numeric(levels(testy$sealevel))[testy$sealevel]
+testy$resultspeed <- as.numeric(levels(testy$resultspeed))[testy$resultspeed]
+testy$resultdir <- as.numeric(levels(testy$resultdir))[testy$resultdir]
+testy$avgspeed <- as.numeric(levels(testy$avgspeed))[testy$avgspeed]
+```
+
+```{r, ggplot-theme}
+theme_set(theme_light())
+```
+
+
+```{r, load-data, message = FALSE, warning = FALSE}
+library(readr)
+cleandata <- read_csv("cleandata.csv")
+cleandata$event[cleandata$preciptotal > 1 | cleandata$snowfall > 2] = "TRUE"
+cleandata$event[is.na(cleandata$preciptotal) & (cleandata$snowfall > 2)] = "TRUE"
+cleandata$event[is.na(cleandata$snowfall) & (cleandata$preciptotal > 1)] = "TRUE"
+cleandata$event[!(cleandata$preciptotal > 1 | cleandata$snowfall > 2)] = "FALSE"
+cleandata$event[is.na(cleandata$preciptotal) & is.na(cleandata$snowfall)] = "FALSE"
+cleandata$event[is.na(cleandata$preciptotal) & (cleandata$snowfall <= 2)] = "FALSE"
+cleandata$event[is.na(cleandata$snowfall) & (cleandata$preciptotal <= 1)] = "FALSE"
+```
+
+***
+
+***
+
+# Abstract
+
+> Extreme weather events have large impacts on the surrounding communities, causing massive increases in demand for certain products. Walmart has a large inventory for these products and has aggregated data on weather events to be able to predict the amount of units of product necessary. A variety of statistical learning methods were explored and validated. 
+
+***
+
+# Introduction
+
+	Weather has been noted to have an effect on retail sales creating fluctuations in demand because certain items are more useful during these weather events. [^1] This leads to a problem for producers with supply chain management and the so-called "bullwhip effect" [^2] where forecasts can lead to supply chain inefficiencies. Being able to make better predictions of the effect of the weather on sales will allow producers to choose a proper inventory and minimize the effect. 
+	
+	The models will be trained onto a training dataset where they will be selected via an estimation and validation dataset and then tested on the training dataset which will be evaluated through a kaggle score of the Root Mean Squared Logarithmic Error. The data will be trained on all potential features beginning with OLS. Model diagnostics and selection criteria will then be used to evaluate the linear model. We will also consider the performance of scaling models such as Ridge and Lasso Regressions. We will also examine quadratic relationships and interaction terms for explanatory power.
+	
+***
+
+# Methods
+	
+## Data
+
+  The following data was accessed from Kaggle, and collected by Walmart based on products whose sales may have been affected by weather events. [^3] The data was collected in 2014 and taken from 45 different stores with 20 different weather reporting stations across these areas. The data was merged from several sources, a training dataset which has the amount of units and weather data for the day. A weather event was defined as as any day in which more than an inch of rain or two inches of snow was observed.
+  
+  One of the problems with the data is that much of the weather data is missing values. Refer to table one in the appendix. Most of the weather data is missing values with sunrise and sunset missing 51.38% of their data. This suggests that we should drop most of the weather data, but use the dummy variable for whether there was a weather event.
+  
+```{r, exploratory-data-analysis,  message = FALSE, warning = FALSE}
+p1 = cleandata %>% 
+  ggplot(aes(x = units)) +
+  geom_histogram(bins = 30) + 
+  xlim(0, 200) +
+  ylim(0, 15000) +
+  ggtitle("Figure 1: Histogram of Units")
+
+p2 = cleandata %>% 
+  ggplot(aes(x = item_nbr, y = units)) + 
+  geom_point(col = "orange") +
+  ggtitle("Figure 2: Scatter Plot of Item Number vs Number of Units")
+
+p3 = cleandata %>%
+    ggplot(aes(x = event, fill = event)) +
+    geom_bar() +
+    ggtitle("Figure 3: Bar plot of Number of Weather Events")
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+Beginning with some exploratory data analysis, we can see that the histogram of units is skewed left and appears non-normal, we will check our normality assumption on the regression model. In the plot of item number vs unit there appear to be two outliers which we will want to correct for as we move forward. Another item of note is that there is a large class imbalance with the number of weather events, we could consider doing SMOTE resampling as a method to correct for this. We will check the linear model for the cook's distance and ability to influence the regression under the modeling section.
+	
+## Modeling
+
+```{r, ols, echo = TRUE}
+model1 = lm(units ~ date + store_nbr + item_nbr + event, data = cleandata)
+summary(model1)
+```
+
+	
+#Linear Regression Model / Diagnostics 
+
+
+```{r dataclean, eval=FALSE}
+#applies data converting to remove as factor variables
+#RUN AT START
+
+
+mergedata$store_nbr <- as.factor(mergedata$store_nbr)
+mergedata$item_nbr <- as.factor(mergedata$item_nbr)
+
+
+testy$store_nbr <- as.factor(testy$store_nbr)
+testy$item_nbr <- as.factor(testy$item_nbr)
+
+
+
+>>>>>>> d83b7332c27b35ff60d105b24d723978c7ce56de
 ```
 
 ```{r OLS}
@@ -152,7 +376,7 @@ SampleOLS <- sample
 
 
 #OLS model
-OLSModel <- lm(units ~ . , data = mergedata)
+OLSModel <- lm(units ~ . , data = cleandata)
 
 summary(OLSModel)
 
@@ -166,6 +390,65 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 
 
 ```
+
+
+```{r AIC}
+AICmerge <- cleandata
+
+AICmerge <- na.omit(AICmerge)
+
+AICModel <- lm(units ~ ., data = AICmerge)
+
+SampleAIC <- sample
+AICModel2 <- step(AICModel)
+
+predictionAIC <- predict(AICModel2, newdata = testy)
+predictionAIC[is.na(predictionAIC)] <- 0
+
+SampleAIC$units <- predictionAIC
+
+write.csv(x = SampleAIC, file =  "SampleAIC.csv", row.names = FALSE)
+
+
+
+```
+
+```{r}
+mergedata = read.csv("mergedata.csv")
+testy = read.csv("testy.csv")
+cleandata = read.csv("cleandata.csv")
+drops <- c("X", "key", "codesum", "station_nbr")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy <- testy[ , !names(testy) %in% drops]
+```
+
+```{r}
+cleandata$tmax = NULL
+cleandata$tmin = NULL
+cleandata$X = NULL
+cleandata[cleandata$tavg == "M",]$tavg = NA
+cleandata$tavg = as.numeric(cleandata$tavg)
+testy$date = as.Date(testy$date)
+cleandata$date = as.Date(cleandata$date)
+testy$store_nbr = as.factor(testy$store_nbr)
+testy$item_nbr = as.factor(testy$item_nbr)
+cleandata$store_nbr <- as.factor(cleandata$store_nbr)
+cleandata$item_nbr <- as.factor(cleandata$item_nbr)
+grouped_data = cleandata[cleandata$units != 0,]
+grouped_data$id = paste0(as.character(grouped_data$store_nbr), "_", as.character(grouped_data$item_nbr))
+testy$id = paste0(as.character(testy$store_nbr), "_", as.character(testy$item_nbr))
+```
+
+```{r}
+model = lm(units ~ date + store_nbr + item_nbr + dewpoint , data = grouped_data)
+predictions = predict(model, testy)
+testy$units = predictions
+testy[!testy$id %in% grouped_data$id,]$units = 0
+sample = read.csv("sampleSubmission.csv")
+sample$units = testy$units
+write.csv(sample, "testSubmission.csv", row.names = FALSE)
+```
+
 
 
 
