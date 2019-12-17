@@ -5,6 +5,51 @@ date: "December 17, 2019"
 output: html_document
 ---
 
+
+```{r, setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align = "center", 
+                      cache = TRUE, autodep = TRUE)
+```
+
+```{r, load-packages, include = FALSE, message = FALSE}
+library("tidyverse")
+library("dplyr")
+library("rsample")
+library("caret")
+library("kableExtra")
+library("doParallel")
+library("microbenchmark")
+library(foreach)
+library(parallel)
+library(doParallel)
+library(gridExtra)
+
+
+
+```
+
+```{r, ggplot-theme}
+theme_set(theme_light())
+```
+
+```{r, setup-parallel}
+registerDoParallel(cores = 4)
+```
+
+```{r, load-data, message = FALSE, warning = FALSE}
+library(readr)
+cleandata <- read_csv("cleandata.csv")
+cleandata$event[cleandata$preciptotal > 1 | cleandata$snowfall > 2] = "TRUE"
+cleandata$event[is.na(cleandata$preciptotal) & (cleandata$snowfall > 2)] = "TRUE"
+cleandata$event[is.na(cleandata$snowfall) & (cleandata$preciptotal > 1)] = "TRUE"
+cleandata$event[!(cleandata$preciptotal > 1 | cleandata$snowfall > 2)] = "FALSE"
+cleandata$event[is.na(cleandata$preciptotal) & is.na(cleandata$snowfall)] = "FALSE"
+cleandata$event[is.na(cleandata$preciptotal) & (cleandata$snowfall <= 2)] = "FALSE"
+cleandata$event[is.na(cleandata$snowfall) & (cleandata$preciptotal <= 1)] = "FALSE"
+```
+
+***
+
 ***
 
 # Abstract
@@ -65,19 +110,12 @@ summary(model1)
 ####RUN AT STARTUP
 
 
-#loaded Packages
-library(foreach)
-library(parallel)
-library(doParallel)
-library(dplyr)
-library(caret)
 
 #initialized data
-train <- read.csv("train.csv")
-weather <- read.csv("weather.csv")
-test<- read.csv("test.csv")
-key <- read.csv("key.csv")
+
 mergedata <- read.csv("mergedata.csv")
+
+
 sample <- read.csv("sampleSubmission.csv")
 testy <- read.csv("testy.csv")
 drops <- c("X", "key", "codesum", "station_nbr")
@@ -85,15 +123,10 @@ mergedata <- mergedata[ , !names(mergedata) %in% drops]
 testy <- testy[ , !names(testy) %in% drops]
 
 
-#set backup
-trainbackup <- train
-weatherbackup <- weather
-testbackup <- test
+
 
 #set dates to date format
-train$date <- as.Date(train$date, "%Y-%m-%d")
-weather$date <- as.Date(weather$date, "%Y-%m-%d")
-test$date <- as.Date(test$date, "%Y-%m-%d")
+
 
 
 
@@ -101,12 +134,19 @@ test$date <- as.Date(test$date, "%Y-%m-%d")
 
 ```{r data merge}
 
+train <- read.csv("train.csv")
+weather <- read.csv("weather.csv")
+test<- read.csv("test.csv")
+key <- read.csv("key.csv")
+train$date <- as.Date(train$date, "%Y-%m-%d")
+weather$date <- as.Date(weather$date, "%Y-%m-%d")
+test$date <- as.Date(test$date, "%Y-%m-%d")
+
+
 keymerge <- rep(1,4617600)
 
-key<- read.csv("key.csv")
 
-#Don't run it this way unless you have 24 hours to let your computer run
-#converts all store numbers based on key to merge with weather
+#merges weather with train based on key
   mcmapply( FUN = for(i in 1:4617600){
     keymerge[i] = key$station_nbr[train$store_nbr[i]]
     if(i %% 10000 == 0){
@@ -116,14 +156,18 @@ key<- read.csv("key.csv")
 )
 
 train<-cbind("station_nbr" = keymerge, train)
-  
 mergedata <- merge(train, weather, by = c("date", "station_nbr"))
+#orders data based on original format
 mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
 write.csv(mergedata, "mergedata.csv")
 
+#removes all rows with unit = 0
+cleandata <- subset(mergedata, !mergedata$units == 0)
+write.csv(cleandata, "cleandata.csv")
 
 
 
+#merges test data with weather based on key
 test <- read.csv("test.csv")
 keytest <- rep(0, nrow(test))
 #create key
@@ -140,10 +184,12 @@ newtest <- cbind("station_nbr" = keytest, test)
 #merges test data with merge data to create a from for prediction
 testtest <- merge(newtest, weather,  by = c("date", "station_nbr"))
 drops <- c("X.1", "X")
+#merges data based on standard format
 testtest <- testtest[ , !names(testtest) %in% drops]
 testtest <- testtest[with(testtest, order(testtest$date, testtest$store_nbr, testtest$item_nbr)),]
 
 write.csv(testtest, "testy.csv")
+
 
 ```
 
@@ -222,7 +268,10 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 ```
 
 ```{r AIC}
-AICmerge <- na.omit(mergedata)
+AICmerge <- mergedata
+
+AICmerge <- na.omit(AICmerge)
+
 AICModel <- lm(units ~ ., data = AICmerge)
 
 SampleAIC <- sample
