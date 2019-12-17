@@ -51,11 +51,40 @@ test$date <- as.Date(test$date, "%Y-%m-%d")
 ```
 
 ```{r}
-mergedata = read.csv("mergedata.csv")
-
 weatherclean = weather
 weatherclean[weatherclean == "M"] = NA
 weatherclean[weatherclean == weatherclean$snowfall[37]] = 0
+weatherclean[weatherclean == "-'"] = NA
+
+weatherdrops = c("depart", "sunrise", "sunset", "codesum")
+weatherclean <- weatherclean[ , !names(weatherclean) %in% weatherdrops]
+
+for(i in colnames(weatherclean)[colnames(weatherclean) != "date" & colnames(weatherclean) != "station_nbr"]){
+  weatherclean[[i]] = as.integer(weatherclean[[i]])
+}
+weatherclean = weatherclean[with(weatherclean, order(weatherclean$station_nbr, weatherclean$date)),]
+weatherclean$event = 0
+
+
+for(i in 1:nrow(weatherclean)){
+  weatherclean$event[i] = 4 * (weatherclean$snowfall[i] >= 2 | weatherclean$preciptotal[i] >= 1)
+}
+weatherclean$event[is.na(weatherclean$event)] = FALSE
+
+weatherclean$eventdist = weatherclean$event
+
+for(i in 2:20516){
+    if(weatherclean$event[i+1] >= 4 | weatherclean$event[i-1] >= 4 & weatherclean$eventdist[i] != 4){
+        weatherclean$eventdist[i] = 3}}
+for(i in 3:20515){
+    if(weatherclean$event[i+2] >= 4 | weatherclean$event[i-2] >= 4 & weatherclean$eventdist[i] < 3){
+        weatherclean$eventdist[i] = 2}}
+for(i in 4:20514){
+    if(weatherclean$event[i+3] >= 4 | weatherclean$event[i-3] >= 4 & weatherclean$eventdist[i] < 2){
+        weatherclean$eventdist[i] = 1}}
+
+weatherclean <- weatherclean[ , !names(weatherclean) %in% c("event")]
+
 
 write.csv(weatherclean, "weatherclean.csv")
 ```
