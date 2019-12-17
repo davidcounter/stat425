@@ -25,7 +25,7 @@ library(dplyr)
 
 #initialized data
 train <- read.csv("train.csv")
-weather <- read.csv("weather.csv")
+weather <- read.csv("weather.csv", stringsAsFactors = FALSE)
 test<- read.csv("test.csv")
 key <- read.csv("key.csv")
 mergedata <- read.csv("mergedata.csv")
@@ -48,6 +48,16 @@ test$date <- as.Date(test$date, "%Y-%m-%d")
 
 
 
+```
+
+```{r}
+mergedata = read.csv("mergedata.csv")
+
+weatherclean = weather
+weatherclean[weatherclean == "M"] = NA
+weatherclean[weatherclean == weatherclean$snowfall[37]] = 0
+
+write.csv(weatherclean, "weatherclean.csv")
 ```
 
 ```{r data merge}
