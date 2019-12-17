@@ -80,7 +80,7 @@ for(i in 3:20515){
     if(weatherclean$event[i+2] >= 4 | weatherclean$event[i-2] >= 4 & weatherclean$eventdist[i] < 3){
         weatherclean$eventdist[i] = 2}}
 for(i in 4:20514){
-    if(weatherclean$event[i+3] >= 4 | weatherclean$event[i-3] >= 4 & weatherclean$eventdist[i] < 2){
+    if(weatherclean$event[i+3] >= 4 | weatherclean$event[i-3] >= 4 & weatherclean$eventdist[i] == 0){
         weatherclean$eventdist[i] = 1}}
 
 weatherclean <- weatherclean[ , !names(weatherclean) %in% c("event")]
