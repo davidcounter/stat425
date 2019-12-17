@@ -1,16 +1,64 @@
 ---
 title: "Final Project"
-author: "David Counter"
+author: "John Compton, David Counter, Bhanu Kappala, and Ethan Surdykowski"
 date: "December 17, 2019"
 output: html_document
 ---
 
-#Introduction
+***
 
-	The Stat 425 final project is about working with big data and creating the best model to use for the predication of sales of products as it relates to weather events. This data was aggregated by Walmart back in 2014, taken from 45 different stores with 20 different weather reporting stations across these areas. The train data provided by Walmart gives us the data across these stores for the amount of a particular item sold, its item id and is organized by date. The test csv is what Kaggle tests our model against; the data for these dates and stores is known, and we will be given a score based upon how accurate our model is in comparison to its actual values.
+# Abstract
 
-	Walmart also of course provides weather data across 20 stations per day. There’s extensive data on rainfall, wind speed, temperature, significant weather events and so on. Predictors like pressure, monthly rainfall, average sea level pressure and so on might not be that influential in terms of the final model, however we will see should our prediction on these variables might change. We will have to use these potential 74 variables to create a model which predicts the sales of each product in the test data. First initially starting with a “full” Ordinary least squares model, we will do some model selection, possible ridge or lasso scaling, and take into account collinearity, covariance and so on.  After this model selection, we will use it to predict the data with the test.csv data. Kaggle will return a score, the lower of which will be better. Our lowest Kaggle score will be our “best model” and this is what will be scored in the final grade. Finally, at the end we’ll include all relevant graphs and tables, as well as all code that is used in the report.
+> Extreme weather events have large impacts on the surrounding communities, causing massive increases in demand for certain products. Walmart has a large inventory for these products and has aggregated data on weather events to be able to predict the amount of units of product necessary. A variety of statistical learning methods were explored and validated. 
+
+***
+
+# Introduction
+
+	Weather has been noted to have an effect on retail sales creating fluctuations in demand because certain items are more useful during these weather events. [^1] This leads to a problem for producers with supply chain management and the so-called "bullwhip effect" [^2] where forecasts can lead to supply chain inefficiencies. Being able to make better predictions of the effect of the weather on sales will allow producers to choose a proper inventory and minimize the effect. 
 	
+	The models will be trained onto a training dataset where they will be selected via an estimation and validation dataset and then tested on the training dataset which will be evaluated through a kaggle score of the Root Mean Squared Logarithmic Error. The data will be trained on all potential features beginning with OLS. Model diagnostics and selection criteria will then be used to evaluate the linear model. We will also consider the performance of scaling models such as Ridge and Lasso Regressions. We will also examine quadratic relationships and interaction terms for explanatory power.
+	
+***
+
+# Methods
+	
+## Data
+
+  The following data was accessed from Kaggle, and collected by Walmart based on products whose sales may have been affected by weather events. [^3] The data was collected in 2014 and taken from 45 different stores with 20 different weather reporting stations across these areas. The data was merged from several sources, a training dataset which has the amount of units and weather data for the day. A weather event was defined as as any day in which more than an inch of rain or two inches of snow was observed.
+  
+  One of the problems with the data is that much of the weather data is missing values. Refer to table one in the appendix. Most of the weather data is missing values with sunrise and sunset missing 51.38% of their data. This suggests that we should drop most of the weather data, but use the dummy variable for whether there was a weather event.
+  
+```{r, exploratory-data-analysis,  message = FALSE, warning = FALSE}
+p1 = cleandata %>% 
+  ggplot(aes(x = units)) +
+  geom_histogram(bins = 30) + 
+  xlim(0, 200) +
+  ylim(0, 15000) +
+  ggtitle("Figure 1: Histogram of Units")
+
+p2 = cleandata %>% 
+  ggplot(aes(x = item_nbr, y = units)) + 
+  geom_point(col = "orange") +
+  ggtitle("Figure 2: Scatter Plot of Item Number vs Number of Units")
+
+p3 = cleandata %>%
+    ggplot(aes(x = event, fill = event)) +
+    geom_bar() +
+    ggtitle("Figure 3: Bar plot of Number of Weather Events")
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+Beginning with some exploratory data analysis, we can see that the histogram of units is skewed left and appears non-normal, we will check our normality assumption on the regression model. In the plot of item number vs unit there appear to be two outliers which we will want to correct for as we move forward. Another item of note is that there is a large class imbalance with the number of weather events, we could consider doing SMOTE resampling as a method to correct for this. We will check the linear model for the cook's distance and ability to influence the regression under the modeling section.
+	
+## Modeling
+
+```{r, ols, echo = TRUE}
+model1 = lm(units ~ date + store_nbr + item_nbr + event, data = cleandata)
+summary(model1)
+```
+
 	
 #Linear Regression Model / Diagnostics 
 ```{r data load}
@@ -173,6 +221,23 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 
 ```
 
+```{r AIC}
+AICmerge <- na.omit(mergedata)
+AICModel <- lm(units ~ ., data = AICmerge)
+
+SampleAIC <- sample
+AICModel2 <- step(AICModel)
+
+predictionAIC <- predict(AICModel2, newdata = testy)
+predictionAIC[is.na(predictionAIC)] <- 0
+
+SampleAIC$units <- predictionAIC
+
+write.csv(x = SampleAIC, file =  "SampleAIC.csv", row.names = FALSE)
+
+
+
+```
 
 ```{r}
 mergedata = read.csv("mergedata/mergedata.csv")
@@ -216,6 +281,48 @@ write.csv(sample, "testSubmission.csv", row.names = FALSE)
 
 
 
+# Appendix
+
+## Tables and Graphs
+
+```{r, missing-data-table}
+tibble(
+  "Column" = colnames(cleandata),
+  "Percentage of Missing Values" =  as.numeric(colMeans(is.na(cleandata)))
+) %>%
+  kable(caption = "Table 1: Percentage of Missing Values for Each Column of the Shopper Dataset", digits = 4) %>%
+  kable_styling("striped", full_width = FALSE)
+```
+
+
+
+## Data Dictionary:
+
+- `store_nbr` - an id representing one of the 45 stores
+- `item_nbr` - an id representing one of the 111 products
+- `units` - the quantity sold of an item on a given day
+- `tmax` - the maximum temperature in Farenheit
+- `tmin` - the minimum temperature in Farenheit
+- `tavg` - the average temperature in Farenheit
+- `depart` - the temperature departure from the normal
+- `dewpoint` - the average dew point temperature, the atmospheric temperature below which water begins to condense
+- `wetbulb` - the average wet bulb temperature, the temperature taken by a thermometer covered in a water soaked cloth
+- `heat` - the difference between the temperature and 65 degrees Farenheit
+- `cool` - the difference between the temperature and 65 degrees Farenheit
+- `codesum` - a code identifying the type of weather
+- `snowfall` - snow fall in inches
+- `preciptotal` - total amount of precipitation
+- `stnpressure` - average station pressure
+- `sealevel` - average sea level pressure
+- `resultspeed` - resultant wind speed
+- `resultdir` - resultant wind direction
+- `avgspeed` - average wind speed
+
+For more information on the data, refer to the source on Kaggle.
+
+[^1]: [Naples News](https://www.naplesnews.com/story/weather/hurricanes/2019/06/02/hurricane-2019-shoppers-take-advantage-hurricane-sales-tax-holiday/1320135001/)
+[^2]: [Wikipedia: Bullwhip Effect](https://en.wikipedia.org/wiki/Bullwhip_effect)
+[^3]: [Kaggle: Walmart Recruiting II](https://www.kaggle.com/c/walmart-recruiting-sales-in-stormy-weather/overview/evaluation)
 
 
 
