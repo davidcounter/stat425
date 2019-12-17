@@ -156,7 +156,7 @@ SampleOLS <- sample
 
 
 #OLS model
-OLSModel <- lm(units ~ . - store_nbr + factor(store_nbr) , data = mergedata)
+OLSModel <- lm(units ~ . , data = mergedata)
 
 summary(OLSModel)
 
@@ -174,6 +174,37 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 ```
 
 
+```{r}
+mergedata = read.csv("mergedata/mergedata.csv")
+testy = read.csv("testy.csv")
+drops <- c("X", "key", "codesum", "station_nbr")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy <- testy[ , !names(testy) %in% drops]
+```
+
+```{r}
+mergedata$tmax = NULL
+mergedata$tmin = NULL
+mergedata[mergedata$tavg == "M",]$tavg = NA
+mergedata$tavg = as.numeric(mergedata$tavg)
+testy$date = as.Date(testy$date)
+testy$station_nbr = as.factor(testy$station_nbr)
+testy$store_nbr = as.factor(testy$store_nbr)
+testy$item_nbr = as.factor(testy$item_nbr)
+grouped_data = mergedata[mergedata$units != 0,]
+grouped_data$id = paste0(as.character(grouped_data$store_nbr), "_", as.character(grouped_data$item_nbr))
+testy$id = paste0(as.character(testy$store_nbr), "_", as.character(testy$item_nbr))
+```
+
+```{r}
+model = lm(units ~ date + store_nbr + item_nbr + dewpoint , data = grouped_data)
+predictions = predict(model, testy)
+testy$units = predictions
+testy[!testy$id %in% grouped_data$id,]$units = 0
+sample = read.csv("sampleSubmission.csv")
+sample$units = testy$units
+write.csv(sample, "testSubmission.csv", row.names = FALSE)
+```
 
 
 
