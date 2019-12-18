@@ -272,7 +272,9 @@ SampleRIDGE$units <- predictions
 
 write.csv(x = SampleRIDGE, file =  "SampleRIDGE.csv", row.names = FALSE)
 ```
+Even though our linear model had errors that were close to normal, we thought that exploring different models might be a good idea in fiting our model. Generalized linear modeling allows non-normal variables to be mapped linearly to the response variable. This comes in the form of a "link" function, which forms the response variables based on certain families of distributions. The Gaussian distribution is in the normal family of distributions. We used Gaussian fitting to try and normalize our results in case we missed any non normal variables within our model. 
 
+We chose the same predictors as before, as with our fitting we found that these predictors worked best on our models response variable as it related to our kaggle score. We wanted to use the created variables witin this data, as dropping any of them actually made our kaggle score worse, especially date, weekday, and month. This score however didn't improve greatly on our kaggle score and was more in line with our Lasso and Ridge scores rather than our
 
 ```{r glm}
 refineddata <- read.csv("refined_data.csv")
