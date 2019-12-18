@@ -1,0 +1,174 @@
+---
+title: 'Walmart Recruiting II: Sales in Stormy Weather'
+author: "Bhanu Kappala"
+date: "12/17/2019"
+output: pdf_document
+fontsize: 12pt
+---
+
+# Introduction
+
+The purpose of this project is to predict the sales of various products sold around the time of major weather events. The main motivation behind this task - beyond the obvious implications of a Kaggle challenge - is studing the effect weather has been noted to have on retail sales creating fluctuations in demand because certain items are more useful during these weather events. [^1] This leads to a problem for producers with supply chain management and the so-called "bullwhip effect" [^2] where forecasts can lead to supply chain inefficiencies. Being able to make better predictions of the effect of the weather on sales will allow producers to choose a proper inventory and minimize the effect. 
+	 
+Walamrt has provided a training and testing dataset. The training data given consists of sales data from 45 different stores. The training dataset provided by Walmart gives us the data across these stores for the amount of a particular item sold, its item id and the date that each item is sold. Walmart also of course provides weather data across 20 stations per day. There’s extensive data on rainfall, wind speed, temperature, significant weather events and so on. Predictors like pressure, monthly rainfall, average sea level pressure and so on might not be that influential in terms of the final model, however we will see how influential these variables end up being based on our predictions. The evaluation metric for the testing dataset will be Root Mean Squared Logarithmic Error. To begin, a simplistic initial Ordinary least squares model will be fit to the dataset and evaluated for its effectiveness. Through some intermediary diagnostic tests, the OLS model will be further analyzed with a focus on understanding how this model can be improved to increase the accuracy of the prediction. Afterwards, various other methods that were discussed in STAT425 for more robust modeling will be considered/implemented. This includes techinques like ridge/lasso regression, feature selection through stepwise selection, and other methods.
+
+
+# Exploratory Data Analysis
+
+```{r, echo = FALSE}
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+library(tibble)
+library(caret)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, eval = FALSE}
+mergedata = read.csv("stat425/mergedata.csv")
+testy = read.csv("stat425/mergedtestdata.csv")
+drops <- c("X", "key", "codesum", "station_nbr")
+mergedata <- mergedata[ , !names(mergedata) %in% drops]
+testy <- testy[ , !names(testy) %in% drops]
+
+mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
+mergedata$store_nbr <- as.factor(mergedata$store_nbr)
+mergedata$item_nbr <- as.factor(mergedata$item_nbr)
+mergedata$id = paste0(as.character(mergedata$store_nbr), "_", as.character(mergedata$item_nbr))
+
+
+testy$date <- as.Date(testy$date, "%Y-%m-%d")
+testy$store_nbr <- as.factor(testy$store_nbr)
+testy$item_nbr <- as.factor(testy$item_nbr)
+testy$id = paste0(as.character(testy$store_nbr), "_", as.character(testy$item_nbr))
+```
+
+
+Before we consider any visualizations for variables, some investigation should be conducted with regards to missing data.
+
+```{r, eval = FALSE}
+tibble(
+  "Column" = colnames(mergedata[-(1:4)]),
+  "Percentage of Missing Values (%)" =  as.numeric(colMeans(is.na(mergedata[-(1:4)]))) * 100
+) %>%
+  kable(caption = "Table 1: Percentage of Missing Values for Each Column of the Full Merged Dataset", digits = 4) %>%
+  kable_styling("striped", full_width = FALSE, latex_options = "hold_position")
+```
+
+```{r, eval = FALSE, echo = FALSE}
+# missing_unit_values = sum(mergedata$units == 0)
+# all_ids = unique(mergedata$id)
+# length_each_id = unlist(map(all_ids, function(x) sum(mergedata$id == x)))
+# zeros_per_id = unlist(map(all_ids, function(x) sum(mergedata$id == x & mergedata$units == 0)))
+# valid_ids = all_ids[length_each_id != zeros_per_id]
+# no_zeros = mergedata[mergedata$id %in% valid_ids,]
+# 
+# no_zeros$blackFriday = 0
+# no_zeros$blackFriday[no_zeros$date == "2013-11-29"] = 1
+# no_zeros$blackFriday[no_zeros$date == "2012-11-23"] = 1
+# 
+# testy$blackFriday = 0
+# testy$blackFriday[testy$date == "2014-11-28"] = 1
+# 
+# 
+# write.csv(no_zeros, file = "refined_data.csv", row.names = FALSE)
+# write.csv(testy, file = "mergedtestdata.csv", row.names = FALSE)
+
+```
+
+
+It can be seen that certain variables are missing a majority of their values, making it difficult to justify incorporating them into the full model. It is clear from this that the weather data provided to us is extremely incomplete - a good baseline model might be to just perform OLS on any sales related predictors and see how that model performs for the prediction task. Another "missing data" problem to consider is the task of considering all the units that had zero sold for a certain day. These observations constitute a majority of the dataset with around `r 0` observations consisting of zeros. With this large of an class imbalance between zeros and nonzeros, the prediction power of our model will be severly negatively impacted if regression is conducted with all of these `units = 0` observations. So to account for this, our training dataset will remove all of these observations where every instance of a store-item number pair that has all 0 unit counts.
+
+
+Having cleaned the dataset, some basic frequency plots for each variable can be created:
+
+```{r, include = FALSE}
+refined_data = read.csv("stat425/refined_data.csv")
+
+test_data = read.csv("stat425/mergedtestdata.csv")
+
+refined_data$date <- as.Date(refined_data$date, "%Y-%m-%d")
+refined_data$store_nbr <- as.factor(refined_data$store_nbr)
+refined_data$item_nbr <- as.factor(refined_data$item_nbr)
+
+test_data$date <- as.Date(test_data$date, "%Y-%m-%d")
+test_data$store_nbr <- as.factor(test_data$store_nbr)
+test_data$item_nbr <- as.factor(test_data$item_nbr)
+```
+
+```{R, echo = FALSE}
+p1 = refined_data %>% 
+  ggplot(aes(x = units)) +
+  geom_histogram(bins = 30) + 
+  xlim(0, 200) +
+  ylim(0, 15000) +
+  ggtitle("Figure 1: Histogram of Units")
+
+p2 = refined_data %>% 
+  ggplot(aes(x = item_nbr, y = units)) + 
+  geom_point(col = "orange") +
+  ggtitle("Figure 2: Scatter Plot of Item Number vs Number of Units")
+
+p3 = refined_data %>%
+    ggplot(aes(x = eventdist, fill = eventdist)) +
+    geom_bar() +
+    ggtitle("Figure 3: Bar plot of Number of Weather Events")
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+
+
+```
+
+Beginning with some exploratory data analysis, we can see that the histogram of units is skewed left and appears non-normal, we will check our normality assumption on the regression model. In the plot of item number vs unit there appear to be two outliers which we will want to correct for as we move forward. Another item of note is that there is a large class imbalance with the number of weather events, we could consider doing SMOTE resampling as a method to correct for this. We will check the linear model for the cook's distance and ability to influence the regression under the modeling section.
+
+# Linear Regression Model/Diagnostics
+
+```{r}
+
+reg_model = lm(units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
+
+predictions = predict(reg_model, test_data)
+predictions[!test_data$id %in% refined_data$id] = 0
+sampleSub = read.csv("stat425/sampleSubmission.csv")
+sampleSub$units = predictions
+write.csv(sampleSub,"testSubmission.csv", row.names = FALSE)
+
+```
+
+```{r}
+model = train(
+  units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data, method = "glmnet", trControl = trainControl("cv", number = 10), tuneLength = 10
+)
+```
+
+
+## Data Dictionary:
+
+- `store_nbr` - an id representing one of the 45 stores
+- `item_nbr` - an id representing one of the 111 products
+- `units` - the quantity sold of an item on a given day
+- `tmax` - the maximum temperature in Farenheit
+- `tmin` - the minimum temperature in Farenheit
+- `tavg` - the average temperature in Farenheit
+- `depart` - the temperature departure from the normal
+- `dewpoint` - the average dew point temperature, the atmospheric temperature below which water begins to condense
+- `wetbulb` - the average wet bulb temperature, the temperature taken by a thermometer covered in a water soaked cloth
+- `heat` - the difference between the temperature and 65 degrees Farenheit
+- `cool` - the difference between the temperature and 65 degrees Farenheit
+- `codesum` - a code identifying the type of weather
+- `snowfall` - snow fall in inches
+- `preciptotal` - total amount of precipitation
+- `stnpressure` - average station pressure
+- `sealevel` - average sea level pressure
+- `resultspeed` - resultant wind speed
+- `resultdir` - resultant wind direction
+- `avgspeed` - average wind speed
+
+For more information on the data, refer to the source on Kaggle.
+
+[^1]: [Naples News](https://www.naplesnews.com/story/weather/hurricanes/2019/06/02/hurricane-2019-shoppers-take-advantage-hurricane-sales-tax-holiday/1320135001/)
+[^2]: [Wikipedia: Bullwhip Effect](https://en.wikipedia.org/wiki/Bullwhip_effect)
+[^3]: [Kaggle: Walmart Recruiting II](https://www.kaggle.com/c/walmart-recruiting-sales-in-stormy-weather/overview/evaluation)
