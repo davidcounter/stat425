@@ -91,7 +91,7 @@ Having cleaned the dataset, some basic frequency plots for each variable can be 
 ```{r, include = FALSE}
 refined_data = read.csv("refined_data.csv")
 
-test_data = read.csv("mergedtestdata.csv")
+mergetestdata = read.csv("mergedtestdata.csv")
 
 refined_data$date <- as.Date(refined_data$date, "%Y-%m-%d")
 refined_data$store_nbr <- as.factor(refined_data$store_nbr)
@@ -182,10 +182,10 @@ These models returned a moderate kaggle score, which improved upon the OLS model
 
 
 ```{r Lasso}
-refineddata <- read.csv("refined_data.csv")
-refineddata$store_nbr <- as.factor(refineddata$store_nbr)
-refineddata$item_nbr <- as.factor(refineddata$item_nbr)
-refineddata$date <- as.Date(refineddata$date, "%Y-%m-%d")
+refined_data <- read.csv("refined_data.csv")
+refined_data$store_nbr <- as.factor(refined_data$store_nbr)
+refined_data$item_nbr <- as.factor(refined_data$item_nbr)
+refined_data$date <- as.Date(refined_data$date, "%Y-%m-%d")
 
 
 SampleLASSO <- sample
@@ -194,9 +194,9 @@ mergedtestdata$store_nbr <- as.factor(mergedtestdata$store_nbr)
 mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
 mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
 
-units <- refineddata$units
+units <- refined_data$units
 
-modelmatrix <- model.matrix(lm(units~date +store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = refineddata))[, -36]
+modelmatrix <- model.matrix(lm(units~date +store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = refined_data))[, -36]
 y=seq(1, nrow(mergedtestdata), by = 1)
 mergedtestdata$y = y
 modelmatrixtest <- model.matrix(lm(y ~ date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = mergedtestdata))
@@ -208,7 +208,7 @@ GLMModel <- glmnet(x = modelmatrix, y=units,  family="gaussian", alpha = 1, lamb
 predictionLASSO <- predict(GLMModel, newx = modelmatrixtest, type ="response")
 
 predictions <- predictionLASSO
-predictions[!mergedtestdata$id %in% refineddata$id] = 0
+predictions[!mergedtestdata$id %in% refined_data$id] = 0
 predictions[is.na(predictions)] <- 0
 
 SampleLASSO$units <- predictions
@@ -218,10 +218,10 @@ write.csv(x = SampleLASSO, file =  "SampleLASSO.csv", row.names = FALSE)
 
 
 ```{r Ridge}
-refineddata <- read.csv("refined_data.csv")
-refineddata$store_nbr <- as.factor(refineddata$store_nbr)
-refineddata$item_nbr <- as.factor(refineddata$item_nbr)
-refineddata$date <- as.Date(refineddata$date, "%Y-%m-%d")
+refined_data <- read.csv("refined_data.csv")
+refined_data$store_nbr <- as.factor(refined_data$store_nbr)
+refined_data$item_nbr <- as.factor(refined_data$item_nbr)
+refined_data$date <- as.Date(refined_data$date, "%Y-%m-%d")
 
 
 SampleRIDGE <- sample
@@ -230,9 +230,9 @@ mergedtestdata$store_nbr <- as.factor(mergedtestdata$store_nbr)
 mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
 mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
 
-units <- refineddata$units
+units <- refined_data$units
 
-modelmatrix <- model.matrix(lm(units~date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = refineddata))[, -36]
+modelmatrix <- model.matrix(lm(units~date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = refined_data))[, -36]
 y=seq(1, nrow(mergedtestdata), by = 1)
 mergedtestdata$y = y
 modelmatrixtest <- model.matrix(lm(y ~ date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = mergedtestdata))
@@ -244,7 +244,7 @@ GLMModel <- glmnet(x = modelmatrix, y=units,  family="gaussian", alpha = 0, lamb
 predictionRIDGE <- predict(GLMModel, newx = modelmatrixtest, type ="response")
 
 predictions <- predictionRIDGE
-predictions[!mergedtestdata$id %in% refineddata$id] = 0
+predictions[!mergedtestdata$id %in% refined_data$id] = 0
 predictions[is.na(predictions)] <- 0
 
 SampleRIDGE$units <- predictions
