@@ -31,11 +31,11 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ```{r, eval = FALSE}
 mergedata = read.csv("mergedata.csv")
-testy = read.csv("mergedtestdata.csv")
+mergetestdata = read.csv("mergedtestdata.csv")
 sample = read.csv("sampleSubmission")
 drops <- c("X", "key", "codesum", "station_nbr")
 mergedata <- mergedata[ , !names(mergedata) %in% drops]
-testy <- testy[ , !names(testy) %in% drops]
+mergetestdata <- mergetestdata[ , !names(mergetestdata) %in% drops]
 
 mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
 mergedata$store_nbr <- as.factor(mergedata$store_nbr)
@@ -43,10 +43,10 @@ mergedata$item_nbr <- as.factor(mergedata$item_nbr)
 mergedata$id = paste0(as.character(mergedata$store_nbr), "_", as.character(mergedata$item_nbr))
 
 
-testy$date <- as.Date(testy$date, "%Y-%m-%d")
-testy$store_nbr <- as.factor(testy$store_nbr)
-testy$item_nbr <- as.factor(testy$item_nbr)
-testy$id = paste0(as.character(testy$store_nbr), "_", as.character(testy$item_nbr))
+mergetestdata$date <- as.Date(mergetestdata$date, "%Y-%m-%d")
+mergetestdata$store_nbr <- as.factor(mergetestdata$store_nbr)
+mergetestdata$item_nbr <- as.factor(mergetestdata$item_nbr)
+mergetestdata$id = paste0(as.character(mergetestdata$store_nbr), "_", as.character(mergetestdata$item_nbr))
 ```
 
 
@@ -73,12 +73,12 @@ tibble(
 # no_zeros$blackFriday[no_zeros$date == "2013-11-29"] = 1
 # no_zeros$blackFriday[no_zeros$date == "2012-11-23"] = 1
 # 
-# testy$blackFriday = 0
-# testy$blackFriday[testy$date == "2014-11-28"] = 1
+# mergetestdata$blackFriday = 0
+# mergetestdata$blackFriday[mergetestdata$date == "2014-11-28"] = 1
 # 
 # 
 # write.csv(no_zeros, file = "refined_data.csv", row.names = FALSE)
-# write.csv(testy, file = "mergedtestdata.csv", row.names = FALSE)
+# write.csv(mergetestdata, file = "mergedtestdata.csv", row.names = FALSE)
 
 ```
 
@@ -97,9 +97,9 @@ refined_data$date <- as.Date(refined_data$date, "%Y-%m-%d")
 refined_data$store_nbr <- as.factor(refined_data$store_nbr)
 refined_data$item_nbr <- as.factor(refined_data$item_nbr)
 
-test_data$date <- as.Date(test_data$date, "%Y-%m-%d")
-test_data$store_nbr <- as.factor(test_data$store_nbr)
-test_data$item_nbr <- as.factor(test_data$item_nbr)
+mergetestdata$date <- as.Date(mergetestdata$date, "%Y-%m-%d")
+mergetestdata$store_nbr <- as.factor(mergetestdata$store_nbr)
+mergetestdata$item_nbr <- as.factor(mergetestdata$item_nbr)
 ```
 
 ```{R, echo = FALSE}
@@ -129,7 +129,7 @@ Beginning with some exploratory data analysis, we can see that the histogram of 
 
 # Linear Regression Model/Diagnostics
 ```{r, echo=FALSE}
-mergedtestdata = test_data
+mergedtestdata = mergetestdata
 refined_data_drop = refined_data[ , !names(refined_data) %in% "id"]
 
 refined_data_one_hot = data.frame(one_hot(data.table(refined_data_drop)))
@@ -160,8 +160,8 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 ```{r}
 reg_model = lm(units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
 
-predictions = predict(reg_model, test_data)
-predictions[!test_data$id %in% refined_data$id] = 0
+predictions = predict(reg_model, mergetestdata)
+predictions[!mergetestdata$id %in% refined_data$id] = 0
 sampleSub = read.csv("sampleSubmission.csv")
 sampleSub$units = predictions
 write.csv(sampleSub,"testSubmission.csv", row.names = FALSE)
