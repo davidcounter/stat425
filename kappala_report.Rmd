@@ -21,6 +21,8 @@ library(ggplot2)
 library(kableExtra)
 library(tibble)
 library(caret)
+library(mltools)
+library(data.table)
 ```
 
 ```{r setup, include=FALSE}
@@ -28,8 +30,9 @@ knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r, eval = FALSE}
-mergedata = read.csv("stat425/mergedata.csv")
-testy = read.csv("stat425/mergedtestdata.csv")
+mergedata = read.csv("mergedata.csv")
+testy = read.csv("mergedtestdata.csv")
+sample = read.csv("sampleSubmission")
 drops <- c("X", "key", "codesum", "station_nbr")
 mergedata <- mergedata[ , !names(mergedata) %in% drops]
 testy <- testy[ , !names(testy) %in% drops]
@@ -86,9 +89,9 @@ It can be seen that certain variables are missing a majority of their values, ma
 Having cleaned the dataset, some basic frequency plots for each variable can be created:
 
 ```{r, include = FALSE}
-refined_data = read.csv("stat425/refined_data.csv")
+refined_data = read.csv("refined_data.csv")
 
-test_data = read.csv("stat425/mergedtestdata.csv")
+test_data = read.csv("mergedtestdata.csv")
 
 refined_data$date <- as.Date(refined_data$date, "%Y-%m-%d")
 refined_data$store_nbr <- as.factor(refined_data$store_nbr)
@@ -125,14 +128,41 @@ gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
 Beginning with some exploratory data analysis, we can see that the histogram of units is skewed left and appears non-normal, we will check our normality assumption on the regression model. In the plot of item number vs unit there appear to be two outliers which we will want to correct for as we move forward. Another item of note is that there is a large class imbalance with the number of weather events, we could consider doing SMOTE resampling as a method to correct for this. We will check the linear model for the cook's distance and ability to influence the regression under the modeling section.
 
 # Linear Regression Model/Diagnostics
+```{r, echo=FALSE}
+mergedtestdata = test_data
+refined_data_drop = refined_data[ , !names(refined_data) %in% "id"]
+
+refined_data_one_hot = data.frame(one_hot(data.table(refined_data_drop)))
+
+mergedtestdata_drop = mergedtestdata[ , !names(mergedtestdata) %in% c("id", "date")]
+
+mergedtest_one_hot = data.frame(one_hot(data.table(mergedtestdata_drop)))
+#missing store number 35 from test and training set. Adding all zeros fixes problem
+mergedtest_one_hot$store_nbr_35 = 0
+
+SampleOLS <- sample
+
+#Full OLS model
+fullOLSModel <- lm(units ~ ., data = refined_data_one_hot)
+
+mergedtest_one_hot$date = mergedtestdata$date
+
+predictionOLS <- predict(fullOLSModel, newdata = mergedtest_one_hot)
+predictionOLS[is.na(predictionOLS)] <- 0
+
+predictionOLS[!mergedtestdata$id %in% refined_data$id] = 0
+SampleOLS$units = predictionOLS
+
+write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
+```
+
 
 ```{r}
-
 reg_model = lm(units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
 
 predictions = predict(reg_model, test_data)
 predictions[!test_data$id %in% refined_data$id] = 0
-sampleSub = read.csv("stat425/sampleSubmission.csv")
+sampleSub = read.csv("sampleSubmission.csv")
 sampleSub$units = predictions
 write.csv(sampleSub,"testSubmission.csv", row.names = FALSE)
 
@@ -166,6 +196,10 @@ model = train(
 - `resultspeed` - resultant wind speed
 - `resultdir` - resultant wind direction
 - `avgspeed` - average wind speed
+- `eventdist` - levels of distance from a weather event defined by over 2 in of snow or 1 inch of precipitation
+- `day_of_week` - factor with levels for each day of the week
+- `weekend` - boolean that is TRUE for weekend and false otherwise
+- `month` - which month of the year it is
 
 For more information on the data, refer to the source on Kaggle.
 
