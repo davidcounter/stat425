@@ -31,6 +31,23 @@ library(tibble)
 library(caret)
 library(mltools)
 library(data.table)
+library("tidyverse")
+library("dplyr")
+library("rsample")
+library("caret")
+library("kableExtra")
+library("doParallel")
+library("microbenchmark")
+library("foreach")
+library("parallel")
+library("gridExtra")
+library("lubridate")
+library("readr")
+library("lmtest")
+library("mltools")
+library("data.table")
+library("car")
+library("bestNormalize")
 ```
 
 ```{r, eval = FALSE}
@@ -117,27 +134,37 @@ mergetestdata$item_nbr <- as.factor(mergetestdata$item_nbr)
 ```
 
 ```{R, echo = FALSE}
-p1 = refined_data %>% 
-  ggplot(aes(x = units)) +
-  geom_histogram(bins = 30) + 
-  xlim(0, 200) +
-  ylim(0, 15000) +
-  ggtitle("Figure 1: Histogram of Units")
-
-p2 = refined_data %>% 
-  ggplot(aes(x = item_nbr, y = units)) + 
-  geom_point(col = "orange") +
-  ggtitle("Figure 2: Scatter Plot of Item Number vs Number of Units")
-
-p3 = refined_data %>%
-    ggplot(aes(x = eventdist, fill = eventdist)) +
-    geom_bar() +
-    ggtitle("Figure 3: Bar plot of Number of Weather Events")
-
-gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
 
 
+
+
+
+# p1 = refined_data %>% 
+#   ggplot(aes(x = units)) +
+#   geom_histogram(bins = 30) + 
+#   xlim(0, 200) +
+#   ylim(0, 15000) +
+#   ggtitle("Figure 1: Histogram of Units")
+# 
+# p2 = refined_data %>% 
+#   ggplot(aes(x = item_nbr, y = units)) + 
+#   geom_point(col = "orange") +
+#   ggtitle("Figure 2: Scatter Plot of Item Number vs Number of Units")
+# 
+# p3 = refined_data %>%
+#     ggplot(aes(x = eventdist, fill = eventdist)) +
+#     geom_bar() +
+#     ggtitle("Figure 3: Bar plot of Number of Weather Events")
+# 
+# gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
 ```
+
+![Histogram of Units](plot1.png)
+![Scatter Plot](plot2.png)
+![Bar plot](plot3.png)
+
+
+
 
 Beginning with some exploratory data analysis, we can see that the histogram of units is skewed left and appears non-normal, we will check our normality assumption on the regression model. In the plot of item number vs unit there appear to be two outliers which we will want to correct for as we move forward. We will check the linear model for the cook's distance and ability to influence the regression under the modeling section.
 
@@ -187,12 +214,45 @@ write.csv(sampleSub,"testSubmission.csv", row.names = FALSE)
 
 ```{r}
 model = train(
-  units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data, method = "glmnet", trControl = trainControl("cv", number = 10), tuneLength = 10
+  units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month, data = refined_data, method = "glmnet", trControl = trainControl("cv", number = 10), tuneLength = 10
 )
+predictions = predict(model, mergetestdata)
+predictions[!mergetestdata$id %in% refined_data$id] = 0
+sampleSub = read.csv("sampleSubmission.csv")
+sampleSub$units = predictions
+write.csv(sampleSub,"elastic2Submission.csv", row.names = FALSE)
 ```
 
 
-Our first model we tried was a full linear model with all the predictors. This model will provide a good baseline on how to progress further in trying to predict unit sales, and gave us a starting Kaggle metric of around 0.28. After initially conducting our regression, the first important point noticed was how much multicollinearity existed between the variables in the dataset. `R` detected 47 different instances of singularities, so we decided we needed to omit a large amount of variables. Running `alias()`, it was clear that certain weather variables had a high degree of correlation between them that made them redundant. We also found that not including the weather variables actually increased our Kaggle scores.  So it was decided to drop the majority of the weather related variables and instead create our own variable `eventdist`, which calculates the event's time related proximity to a significant weather event. This new linear model actually still had problems with perfect collinearity - this is most likely because we created mutliple date related variables that most likely possess a strong degree of overlap (`weekend` vs `day_of_week` for example). Dropping `day_of_week` allowed us to finally examine our VIF values, and these values all hovered around 1 - from this we determined that the predictors left were sufficient for prediction as this combination of predictors actually showed a lower Kaggle metric compared to before removing all perfect collinearity. We now seek to evaluate if our model satisfies the assumptions of linear regression. While traditionally this should be done before fitting, in cases like this where it is computationally cheap (comparatively) to fit a linear model, and the primary concern is prediction it seems fair to disregard assumptions while experimenting. Evaluating the  
+Our first model we tried was a full linear model with all the predictors. This model will provide a good baseline on how to progress further in trying to predict unit sales, and gave us a starting Kaggle metric of around 0.28. After initially conducting our regression, the first important point noticed was how much multicollinearity existed between the variables in the dataset. `R` detected 47 different instances of singularities, so we decided we needed to omit a large amount of variables. Running `alias()`, it was clear that certain weather variables had a high degree of correlation between them that made them redundant. We also found that not including the weather variables actually increased our Kaggle scores.  So it was decided to drop the majority of the weather related variables and instead create our own variable `eventdist`, which calculates the event's time related proximity to a significant weather event. This new linear model actually still had problems with perfect collinearity - this is most likely because we created mutliple date related variables that most likely possess a strong degree of overlap (`weekend` vs `day_of_week` for example). Dropping `day_of_week` allowed us to finally examine our VIF values, and these values all hovered around 1 - from this we determined that the predictors left were sufficient for prediction as this combination of predictors actually showed a lower Kaggle metric compared to before removing all perfect collinearity. We now seek to evaluate if our model satisfies the assumptions of linear regression and perform some diagnostic examination. While traditionally this should be done before fitting, in cases like this where it is computationally cheap (comparatively) to fit a linear model, and the primary concern is prediction it seems fair to disregard assumptions while experimenting. All of the plots immediately show what we mentioned in the exploratory data analysis, that there are clear outliers influencing the plot. In particular observations 80334,  162942, and 75631 appear to be outliers. To confirm this we will look at the hat values to determine the actual influence on the model.
+
+```{r, warning=FALSE}
+cutoff=4/(nrow(refined_data)-length(reg_model$coefficients)-2)
+plot(reg_model, which=4, cook.levels=cutoff)
+influencePlot(reg_model, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+```
+
+Despite not having high hat-values or actual influence on the model, it is clear from the studentized residuals that these are extreme outliers, and so we removed these outliers because it shoudln't make a large difference and will allow us to have easier modeling moving forward.
+	
+```{r}
+refined_data = refined_data[-c(75361, 80334,162942), ]
+model2 = lm(units ~ item_nbr + store_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
+par(mfrow = c(2, 2))
+p5 = plot(model2)
+```
+	
+After removing the outliers we have a better understanding of our model from the plots. In particular we can see that we still have a problem with normality. This was mentioned in the exploratory data analysis because we would like our dependent variable to be approximately normal. We will apply a box-cox transformation to attempt to fix this. 
+
+```{r}
+m = yeojohnson(refined_data$units)
+lam = m$lambda
+y = ((((refined_data$unit+1)^lam)-1)/lam)
+model3 = lm(y ~ item_nbr + store_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
+par(mfrow = c(2,2))
+plot(model3)
+```
+
+There is a notable improvement in the normality of the residuals with this transformation. 
 
 After running our linear model, we tried to run Ridge/Lasso to eliminate overfitting on our predictors. The predictor we chose were based upon our data analysis of the weather data, leading us to largely ignore most of these predictors altogether. As with our other models, we had store number and item number as factors in addiion to day of the week and our "id" factor which gives us a combined reference code for each combination of the two. Black Friday was created as a binary variable to attempt to catch any significant deviations from the norm on America's greatest capitalist holiday. Date was also removed as it seemed to be redundant and we had created additional predictors to account for date anyway, however was added back in as our kaggle score decreased without date as a predictor. We used the created variables in addition to the ones present in the train dataset. Using cross validation to find our optimal lamdas, we ran Ridge and Lasso models, creating a model matrix for our test data and used y as a dummy variable in our test Matrix to extract the prediction values. 
 
@@ -461,6 +521,12 @@ write.csv(sampleSub,"testSubmission.csv", row.names = FALSE)
 model = train(
   units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data, method = "glmnet", trControl = trainControl("cv", number = 10), tuneLength = 10
 )
+
+predictions = predict(model, mergetestdata)
+predictions[!mergetestdata$id %in% refined_data$id] = 0
+sampleSub = read.csv("sampleSubmission.csv")
+sampleSub$units = predictions
+write.csv(sampleSub,"testSubmission.csv", row.names = FALSE)
 ```
 
 ```{r Lasso, eval = FALSE}
