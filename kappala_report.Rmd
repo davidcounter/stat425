@@ -32,6 +32,7 @@ knitr::opts_chunk$set(echo = FALSE)
 ```{r, eval = FALSE}
 mergedata = read.csv("mergedata.csv")
 testy = read.csv("mergedtestdata.csv")
+weather = read.csv("weatherclean.csv", stringsAsFactors = FALSE)
 sample = read.csv("sampleSubmission")
 drops <- c("X", "key", "codesum", "station_nbr")
 mergedata <- mergedata[ , !names(mergedata) %in% drops]
@@ -53,9 +54,15 @@ testy$id = paste0(as.character(testy$store_nbr), "_", as.character(testy$item_nb
 Before we consider any visualizations for variables, some investigation should be conducted with regards to missing data.
 
 ```{r, eval = FALSE}
+weatherclean = weather
+weatherclean[weatherclean == "M"] = NA
+weatherclean[weatherclean == weatherclean$snowfall[37]] = 0
+weatherclean[weatherclean == "-'"] = NA
+weatherclean$date = as.Date(weatherclean$date, "%Y-%m-%d")
+
 tibble(
-  "Column" = colnames(mergedata[-(1:4)]),
-  "Percentage of Missing Values (%)" =  as.numeric(colMeans(is.na(mergedata[-(1:4)]))) * 100
+  "Column" = colnames(weather[-(1:3)]),
+  "Percentage of Missing Values (%)" =  as.numeric(colMeans(is.na(weather[-(1:3)]))) * 100
 ) %>%
   kable(caption = "Table 1: Percentage of Missing Values for Each Column of the Full Merged Dataset", digits = 4) %>%
   kable_styling("striped", full_width = FALSE, latex_options = "hold_position")
