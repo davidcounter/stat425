@@ -23,6 +23,7 @@ library(parallel)
 library(doParallel)
 library(dplyr)
 library(lubridate)
+library(glmnet)
 
 #initialized data
 train <- read.csv("train.csv")
@@ -31,7 +32,7 @@ test<- read.csv("test.csv")
 #key <- read.csv("key.csv")
 mergedata <- read.csv("mergedata.csv")
 sample <- read.csv("sampleSubmission.csv")
-mergedtestdata = read.csv("mergedtestdata")
+mergedtestdata = read.csv("mergedtestdata.csv")
 #drops <- c("X", "key", "codesum", "station_nbr")
 #mergedata <- mergedata[ , !names(mergedata) %in% drops]
 #testy <- testy[ , !names(testy) %in% drops]
@@ -147,9 +148,13 @@ mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
 ```
 
 ```{r OLS}
+
 SampleOLS <- sample
-
-
+mergedata <- read.csv("mergedata.csv")
+mergedata <- mergedata[ , !names(mergedata) %in% c("X")]
+mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
+mergedtestdata <- read.csv("mergedtestdata.csv")
+mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
 
 #OLS model
 OLSModel <- lm(units ~ . , data = mergedata)
@@ -157,7 +162,7 @@ OLSModel <- lm(units ~ . , data = mergedata)
 summary(OLSModel)
 
 
-predictionOLS <- predict(OLSModel, newdata = testy)
+predictionOLS <- predict(OLSModel, newdata = mergedtestdata)
 predictionOLS[is.na(predictionOLS)] <- 0
 
 SampleOLS$units <- predictionOLS
@@ -167,11 +172,133 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 
 ```
 
+```{r AIC}
+SampleAIC <- sample
+mergedata <- read.csv("mergedata.csv")
+mergedata <- mergedata[ , !names(mergedata) %in% c("X")]
+mergedata$date <- as.Date(mergedata$date, "%Y-%m-%d")
+mergedtestdata <- read.csv("mergedtestdata.csv")
+mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
 
 
 
 
 
+AICModel <- step(OLSModel)
+
+predictionAIC <- predict(OLSModel, newdata = mergedtestdata)
+predictionAIC[is.na(predictionAIC)] <- 0
+
+SampleAIC$units <- predictionAIC
+
+write.csv(x = SampleOLS, file =  "SampleAIC.csv", row.names = FALSE)
+
+```
+
+After running our linear model, we tried to run Ridge/Lasso to eliminate overfitting on our predictors. The predictor we chose were based upon our data analysis of the weather data, leading us to largely ignore these predictors altogether. As with our other models, we had store number and item number as factors in addiion to day of the week and our "id" factor which gives us a combined reference code for each combination of the two. Black Friday was created as a binary variable to attempt to catch any significant deviations from the norm on America's greatest capitalist holiday. Date was also removed as it seemed to be redundant and we had created additional predictors to account for date anyway however was added back in as our kaggle score decreased with date as a predictor. We used our created variables in addition to the ones present in the train dataset. Using cross validation to find our optimal lamdas, we ran Ridge and Lasso models, creating a model matrix for our test data and used y as a dummy variable in our test Matrix to extract the prediction values. 
+
+These models returned a moderate kaggle score, which improved upon the OLS model significantly. Both Ridge and Lasso came back with scores roughly around ~ 0.24 - 0.25. 
+
+
+
+
+```{r Lasso}
+refineddata <- read.csv("refined_data.csv")
+refineddata$store_nbr <- as.factor(refineddata$store_nbr)
+refineddata$item_nbr <- as.factor(refineddata$item_nbr)
+refineddata$date <- as.Date(refineddata$date, "%Y-%m-%d")
+
+
+SampleLASSO <- sample
+mergedtestdata <- read.csv("mergedtestdata.csv")
+mergedtestdata$store_nbr <- as.factor(mergedtestdata$store_nbr)
+mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
+mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
+
+units <- refineddata$units
+
+modelmatrix <- model.matrix(lm(units~date +store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = refineddata))[, -36]
+y=seq(1, nrow(mergedtestdata), by = 1)
+mergedtestdata$y = y
+modelmatrixtest <- model.matrix(lm(y ~ date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = mergedtestdata))
+
+lambdas = 10^seq(3, -2, by = -.1)
+CVglm = cv.glmnet(x = modelmatrix, y = units, family = "gaussian", alpha = 1)
+GLMModel <- glmnet(x = modelmatrix, y=units,  family="gaussian", alpha = 1, lambda = CVglm$lambda.min)
+
+predictionLASSO <- predict(GLMModel, newx = modelmatrixtest, type ="response")
+
+predictions <- predictionLASSO
+predictions[!mergedtestdata$id %in% refineddata$id] = 0
+predictions[is.na(predictions)] <- 0
+
+SampleLASSO$units <- predictions
+
+write.csv(x = SampleLASSO, file =  "SampleLASSO.csv", row.names = FALSE)
+```
+
+
+```{r Ridge}
+refineddata <- read.csv("refined_data.csv")
+refineddata$store_nbr <- as.factor(refineddata$store_nbr)
+refineddata$item_nbr <- as.factor(refineddata$item_nbr)
+refineddata$date <- as.Date(refineddata$date, "%Y-%m-%d")
+
+
+SampleRIDGE <- sample
+mergedtestdata <- read.csv("mergedtestdata.csv")
+mergedtestdata$store_nbr <- as.factor(mergedtestdata$store_nbr)
+mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
+mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
+
+units <- refineddata$units
+
+modelmatrix <- model.matrix(lm(units~date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = refineddata))[, -36]
+y=seq(1, nrow(mergedtestdata), by = 1)
+mergedtestdata$y = y
+modelmatrixtest <- model.matrix(lm(y ~ date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = mergedtestdata))
+
+lambdas = 10^seq(3, -2, by = -.1)
+CVglm = cv.glmnet(x = modelmatrix, y = units, family = "gaussian", alpha = 0)
+GLMModel <- glmnet(x = modelmatrix, y=units,  family="gaussian", alpha = 0, lambda = CVglm$lambda.min)
+
+predictionRIDGE <- predict(GLMModel, newx = modelmatrixtest, type ="response")
+
+predictions <- predictionRIDGE
+predictions[!mergedtestdata$id %in% refineddata$id] = 0
+predictions[is.na(predictions)] <- 0
+
+SampleRIDGE$units <- predictions
+
+write.csv(x = SampleRIDGE, file =  "SampleRIDGE.csv", row.names = FALSE)
+```
+
+
+```{r glm}
+refineddata <- read.csv("refined_data.csv")
+refineddata$store_nbr <- as.factor(refineddata$store_nbr)
+refineddata$item_nbr <- as.factor(refineddata$item_nbr)
+refineddata$date <- as.Date(refineddata$date, "%Y-%m-%d")
+
+
+SampleGLM <- sample
+mergedtestdata <- read.csv("mergedtestdata.csv")
+mergedtestdata$store_nbr <- as.factor(mergedtestdata$store_nbr)
+mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
+mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
+
+units <- refineddata$units
+
+GLMModel<-glm(units~date+store_nbr+item_nbr+eventdist+day_of_week+weekend+month+blackFriday, family = gaussian, data = refineddata)
+
+predictionGLM <- predict(GLMModel, mergedtestdata)
+predictions <- predictionGLM
+predictions[!mergedtestdata$id %in% refineddata$id] = 0
+
+SampleGLM$units <- predictions
+
+write.csv(x = SampleGLM, file =  "SampleGLM.csv", row.names = FALSE)
+```
 
 
 
