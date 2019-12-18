@@ -1,0 +1,195 @@
+---
+title: "Final Project"
+author: "David Counter"
+date: "December 17, 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+#Introduction
+
+	The Stat 425 final project is about working with big data and creating the best model to use for the predication of sales of products as it relates to weather events. This data was aggregated by Walmart back in 2014, taken from 45 different stores with 20 different weather reporting stations across these areas. The train data provided by Walmart gives us the data across these stores for the amount of a particular item sold, its item id and is organized by date. The test csv is what Kaggle tests our model against; the data for these dates and stores is known, and we will be given a score based upon how accurate our model is in comparison to its actual values.
+
+	Walmart also of course provides weather data across 20 stations per day. There’s extensive data on rainfall, wind speed, temperature, significant weather events and so on. Predictors like pressure, monthly rainfall, average sea level pressure and so on might not be that influential in terms of the final model, however we will see should our prediction on these variables might change. We will have to use these potential 74 variables to create a model which predicts the sales of each product in the test data. First initially starting with a “full” Ordinary least squares model, we will do some model selection, possible ridge or lasso scaling, and take into account collinearity, covariance and so on.  After this model selection, we will use it to predict the data with the test.csv data. Kaggle will return a score, the lower of which will be better. Our lowest Kaggle score will be our “best model” and this is what will be scored in the final grade. Finally, at the end we’ll include all relevant graphs and tables, as well as all code that is used in the report.
+	
+	
+#Linear Regression Model / Diagnostics 
+```{r data load}
+####RUN AT STARTUP
+
+
+#loaded Packages
+library(foreach)
+library(parallel)
+library(doParallel)
+library(dplyr)
+library(lubridate)
+library(mltools)
+library(data.table)
+
+#initialized data
+sample <- read.csv("sampleSubmission.csv")
+mergedtestdata = read.csv("mergedtestdata.csv")
+refined_data = read.csv("refined_data.csv")
+```
+
+```{r weather clean, eval=FALSE}
+weather = read.csv("weather.csv")
+weatherclean = weather
+weatherclean[weatherclean == "M"] = NA
+weatherclean[weatherclean == weatherclean$snowfall[37]] = 0
+weatherclean[weatherclean == "-'"] = NA
+weatherclean$date = as.Date(weatherclean$date, "%Y-%m-%d")
+
+weatherdrops = c("depart", "sunrise", "sunset", "codesum")
+weatherclean <- weatherclean[ , !names(weatherclean) %in% weatherdrops]
+
+for(i in colnames(weatherclean)[colnames(weatherclean) != "date" & colnames(weatherclean) != "station_nbr"]){
+  weatherclean[[i]] = as.integer(weatherclean[[i]])
+}
+weatherclean = weatherclean[with(weatherclean, order(weatherclean$station_nbr, weatherclean$date)),]
+weatherclean$event = 0
+
+
+for(i in 1:nrow(weatherclean)){
+  weatherclean$event[i] = 4 * (weatherclean$snowfall[i] >= 2 | weatherclean$preciptotal[i] >= 1)
+}
+weatherclean$event[is.na(weatherclean$event)] = FALSE
+
+weatherclean$eventdist = weatherclean$event
+
+for(i in 2:20516){
+    if(weatherclean$event[i+1] >= 4 | weatherclean$event[i-1] >= 4 & weatherclean$eventdist[i] != 4){
+        weatherclean$eventdist[i] = 3}}
+for(i in 3:20515){
+    if(weatherclean$event[i+2] >= 4 | weatherclean$event[i-2] >= 4 & weatherclean$eventdist[i] < 3){
+        weatherclean$eventdist[i] = 2}}
+for(i in 4:20514){
+    if(weatherclean$event[i+3] >= 4 | weatherclean$event[i-3] >= 4 & weatherclean$eventdist[i] == 0){
+        weatherclean$eventdist[i] = 1}}
+
+weatherclean <- weatherclean[ , !names(weatherclean) %in% c("event")]
+
+weatherclean$day_of_week = wday(weatherclean$date, label = TRUE)
+weatherclean$weekend[weatherclean$day_of_week == "Sun" | weatherclean$day_of_week == "Sat"] = TRUE
+weatherclean$weekend[weatherclean$day_of_week != "Sun" & weatherclean$day_of_week != "Sat"] = FALSE
+weatherclean$month = month(weatherclean$date)
+
+write.csv(weatherclean, "weatherclean.csv")
+```
+
+```{r data merge, eval=FALSE}
+keymerge <- rep(1,4617600)
+
+key<- read.csv("key.csv")
+
+#converts all store numbers based on key to merge with weather
+for(i in 1:4617600){
+    keymerge[i] = key$station_nbr[train$store_nbr[i]]
+  }
+
+train<-cbind("station_nbr" = keymerge, train)
+  
+mergedata <- merge(train, weatherclean, by = c("date", "station_nbr"))
+mergedata <- mergedata[with(mergedata, order(mergedata$date, mergedata$store_nbr, mergedata$item_nbr)),]
+write.csv(mergedata, "mergedata.csv")
+
+keytest <- rep(0, nrow(test))
+#create key
+for(i in 1:nrow(test)){
+    keytest[i] = key$station_nbr[test$store_nbr[i]]
+  }
+test <- cbind("station_nbr" = keytest, test)
+
+
+#merges test data with merge data to create a from for prediction
+mergedtestdata <- merge(test, weatherclean,  by = c("date", "station_nbr"))
+drops <- c("X.1", "X")
+mergedtestdata <- mergedtestdata[ , !names(mergedtestdata) %in% drops]
+mergedtestdata <- mergedtestdata[with(mergedtestdata, order(mergedtestdata$date, mergedtestdata$store_nbr, mergedtestdata$item_nbr)),]
+
+write.csv(mergedtestdata, "mergedtestdata.csv")
+
+```
+
+```{r dataclean}
+#applies data converting to remove as factor variables
+refined_data$date <- as.Date(refined_data$date, "%Y-%m-%d")
+refined_data$store_nbr <- as.factor(refined_data$store_nbr)
+refined_data$item_nbr <- as.factor(refined_data$item_nbr)
+
+mergedtestdata$date <- as.Date(mergedtestdata$date, "%Y-%m-%d")
+mergedtestdata$store_nbr <- as.factor(mergedtestdata$store_nbr)
+mergedtestdata$item_nbr <- as.factor(mergedtestdata$item_nbr)
+```
+
+```{r}
+refined_data$blackFriday = 0
+refined_data$blackFriday[refined_data$date == "2013-11-29"] = 1
+refined_data$blackFriday[refined_data$date == "2012-11-23"] = 1
+
+mergedtestdata$blackFriday = 0
+mergedtestdata$blackFriday[mergedtestdata$date == "2014-11-28"] = 1
+```
+
+```{r}
+refined_data_drop = refined_data[ , !names(refined_data) %in% "id"]
+
+refined_data_one_hot = data.frame(one_hot(data.table(refined_data_drop)))
+
+mergedtestdata_drop = mergedtestdata[ , !names(mergedtestdata) %in% c("id", "date")]
+
+mergedtest_one_hot = data.frame(one_hot(data.table(mergedtestdata_drop)))
+#missing store number 35 from test and training set. Adding all zeros fixes problem
+mergedtest_one_hot$store_nbr_35 = 0
+
+```
+
+```{r OLS}
+SampleOLS <- sample
+
+#Full OLS model
+fullOLSModel <- lm(units ~ ., data = refined_data_one_hot)
+
+mergedtest_one_hot$date = mergedtestdata$date
+
+predictionOLS <- predict(fullOLSModel, newdata = mergedtest_one_hot)
+predictionOLS[is.na(predictionOLS)] <- 0
+
+predictionOLS[!mergedtestdata$id %in% refined_data$id] = 0
+SampleOLS$units = predictionOLS
+
+write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
