@@ -1,6 +1,8 @@
 ---
 title: 'Walmart Recruiting II: Sales in Stormy Weather'
 author: "Bhanu Kappala"
+header-includes:
+    - \usepackage{setspace}\doublespacing
 date: "12/17/2019"
 output: pdf_document
 fontsize: 12pt
@@ -15,6 +17,12 @@ Walamrt has provided a training and testing dataset. The training data given con
 
 # Exploratory Data Analysis
 
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, eval = FALSE)
+```
+
 ```{r, echo = FALSE}
 library(dplyr)
 library(ggplot2)
@@ -23,10 +31,6 @@ library(tibble)
 library(caret)
 library(mltools)
 library(data.table)
-```
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r, eval = FALSE}
@@ -137,6 +141,9 @@ gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
 
 Beginning with some exploratory data analysis, we can see that the histogram of units is skewed left and appears non-normal, we will check our normality assumption on the regression model. In the plot of item number vs unit there appear to be two outliers which we will want to correct for as we move forward. We will check the linear model for the cook's distance and ability to influence the regression under the modeling section.
 
+For merging the data, the weather data was first cleaned and detrimental data features with near 50% of values missing were removed. These were depart, sunrise, and sunset. Then using the key each store in the train data set was matched with its given station and the weather and training data were then merged. For additional features to be added to the dataset. Variables for distance to weather events, day of the week, whether it was a weekend or not, month, and whether it was black friday were created.
+These features improved our model more significantly than the weather data did.
+
 # Linear Regression Model/Diagnostics
 ```{r, echo=FALSE}
 mergedtestdata = mergetestdata
@@ -168,7 +175,7 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 
 
 ```{r}
-reg_model = lm(units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
+reg_model = lm(log(units + 1) ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
 
 predictions = predict(reg_model, mergetestdata)
 predictions[!mergetestdata$id %in% refined_data$id] = 0
@@ -184,14 +191,24 @@ model = train(
 )
 ```
 
-After running our linear model, we tried to run Ridge/Lasso to eliminate overfitting on our predictors. The predictor we chose were based upon our data analysis of the weather data, leading us to largely ignore these predictors altogether. As with our other models, we had store number and item number as factors in addiion to day of the week and our "id" factor which gives us a combined reference code for each combination of the two. Black Friday was created as a binary variable to attempt to catch any significant deviations from the norm on America's greatest capitalist holiday. Date was also removed as it seemed to be redundant and we had created additional predictors to account for date anyway however was added back in as our kaggle score decreased with date as a predictor. We used our created variables in addition to the ones present in the train dataset. Using cross validation to find our optimal lamdas, we ran Ridge and Lasso models, creating a model matrix for our test data and used y as a dummy variable in our test Matrix to extract the prediction values. 
+
+Our first model we tried was a full linear model with all the predictors. This model will provide a good baseline on how to progress further in trying to predict unit sales, and gave us a starting Kaggle metric of around 0.28. After initially conducting our regression, the first important point noticed was how much multicollinearity existed between the variables in the dataset. `R` detected 47 different instances of singularities, so we decided we needed to omit a large amount of variables. Running `alias()`, it was clear that certain weather variables had a high degree of correlation between them that made them redundant. We also found that not including the weather variables actually increased our Kaggle scores.  So it was decided to drop the majority of the weather related variables and instead create our own variable `eventdist`, which calculates the event's time related proximity to a significant weather event. This new linear model actually still had problems with perfect collinearity - this is most likely because we created mutliple date related variables that most likely possess a strong degree of overlap (`weekend` vs `day_of_week` for example). Dropping `day_of_week` allowed us to finally examine our VIF values, and these values all hovered around 1 - from this we determined that the predictors left were sufficient for prediction as this combination of predictors actually showed a lower Kaggle metric compared to before removing all perfect collinearity. We now seek to evaluate if our model satisfies the assumptions of linear regression. While traditionally this should be done before fitting, in cases like this where it is computationally cheap (comparatively) to fit a linear model, and the primary concern is prediction it seems fair to disregard assumptions while experimenting. Evaluating the  
+
+After running our linear model, we tried to run Ridge/Lasso to eliminate overfitting on our predictors. The predictor we chose were based upon our data analysis of the weather data, leading us to largely ignore most of these predictors altogether. As with our other models, we had store number and item number as factors in addiion to day of the week and our "id" factor which gives us a combined reference code for each combination of the two. Black Friday was created as a binary variable to attempt to catch any significant deviations from the norm on America's greatest capitalist holiday. Date was also removed as it seemed to be redundant and we had created additional predictors to account for date anyway, however was added back in as our kaggle score decreased without date as a predictor. We used the created variables in addition to the ones present in the train dataset. Using cross validation to find our optimal lamdas, we ran Ridge and Lasso models, creating a model matrix for our test data and used y as a dummy variable in our test Matrix to extract the prediction values. 
 
 These models returned a moderate kaggle score, which improved upon the OLS model significantly. Both Ridge and Lasso came back with scores roughly around ~ 0.24 - 0.25. 
 
+Lasso works on multiple linear regression as a shrinkage method. I.e. predictors are "shrunk" in such a way that the variables are reduced in scale to penalize overfitting variables. This method employs the scale factor lamda as the scale for shrinkage. The lamda that is most desirable is one which reduces sample loss to the least amount. Lasso essentially exists as an OLS model with the addition of the Lamda component; The matrix multiplication works in much the same way but is added to the initial XtX matrix as a lamda identity matrix.  Using cross validation we can find the lamda which has the least impact on the overall performance of the modeling, however in some instances, it's better to use the maximum lamda one standard deviation away from the minimum. These lamdas are also encoded on a logarithmic scale. R handles all of the fitting within the package of glmnet. We used CVglm to cross validate our matrices first before running the glmnet modeling code so that we have the best lamda for our fit. 
+
+The variables are shrunk by the scale factor of Lamda. Lasso also performs some model selection as well, as, if the lamda is high enough, predictors will be dropped as they approach zero. This is due to the fact that it's addtional Beta term is scaled as an absolute value rather than a norm as we see in Ridge regression. Lasso thus has a harsher penalty than Ridge will. R also records this scaling factor and outputs the response as though it were based on its original scale. However, the influence of certain predictors are reduced in the computation of its predictors.
+
+
+While Ridge and Lasso work in much the same way, Ridge actally doesn't elminate any variables in its fitting of the model. Rather than being an addtion of a scaled absolute value, it scales the addtion Beta term by the norm of the vector space. This term will approach zero as lamda grows in size however will never actually reach zero. We wanted to run both Ridge and Lasso to see if R returned any significant differences in the resultant kaggle score, however LASSO returned an only slightly better score, meaning that the penalty applied to Lasso was more helpful to our model but ultimatley didn't create much difference. This score improved by about .05 by applying both Ridge and Lasso as compared to our base OLS model.
 
 
 
-```{r Lasso}
+
+```{r eval = FALSE}
 refined_data <- read.csv("refined_data.csv")
 refined_data$store_nbr <- as.factor(refined_data$store_nbr)
 refined_data$item_nbr <- as.factor(refined_data$item_nbr)
@@ -227,7 +244,7 @@ write.csv(x = SampleLASSO, file =  "SampleLASSO.csv", row.names = FALSE)
 ```
 
 
-```{r Ridge}
+```{r}
 refined_data <- read.csv("refined_data.csv")
 refined_data$store_nbr <- as.factor(refined_data$store_nbr)
 refined_data$item_nbr <- as.factor(refined_data$item_nbr)
@@ -262,7 +279,7 @@ SampleRIDGE$units <- predictions
 write.csv(x = SampleRIDGE, file =  "SampleRIDGE.csv", row.names = FALSE)
 ```
 
-```{r glm}
+```{r, eval = FALSE}
 refined_data <- read.csv("refined_data.csv")
 refined_data$store_nbr <- as.factor(refined_data$store_nbr)
 refined_data$item_nbr <- as.factor(refined_data$item_nbr)
@@ -294,7 +311,10 @@ write.csv(x = SampleGLM, file =  "SampleGLM.csv", row.names = FALSE)
 
 
 
+```{r}
+plot(reg_model)
 
+```
 
 
 
@@ -309,19 +329,7 @@ write.csv(x = SampleGLM, file =  "SampleGLM.csv", row.names = FALSE)
 
 
 #Appendix: Code
-```{r, eval = FALSE}
-library(dplyr)
-library(ggplot2)
-library(kableExtra)
-library(tibble)
-library(caret)
-library(mltools)
-library(data.table)
-```
 
-```{r setup, include=FALSE, eval = FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-```
 
 ```{r, eval = FALSE}
 mergedata = read.csv("mergedata.csv")
@@ -439,7 +447,7 @@ write.csv(x = SampleOLS, file =  "SampleOLS.csv", row.names = FALSE)
 ```
 
 ```{r, eval = FALSE}
-reg_model = lm(units ~ store_nbr + item_nbr + date + eventdist + day_of_week + weekend + month + blackFriday, data = refined_data)
+reg_model = lm(units ~ store_nbr + item_nbr + date + eventdist + weekend + month + blackFriday, data = refined_data)
 
 predictions = predict(reg_model, mergetestdata)
 predictions[!mergetestdata$id %in% refined_data$id] = 0
